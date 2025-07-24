@@ -11,6 +11,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "react-resizable-panels"
+import Editor from '@monaco-editor/react';
 
 import { generateUiComponent } from '@/ai/flows/generate-ui-component';
 import { iterativelyRefineUIComponent } from '@/ai/flows/iteratively-refine-component';
@@ -206,7 +207,7 @@ export function AetherUIMain() {
       const assistantMessage: Message = {
         id: uuidv4(),
         role: 'assistant',
-        content: `I've updated the component based on your request.`,
+        content: `I've updated the component based on your request: "${prompt}". Feel free to provide more feedback.`,
       };
       
       updateActiveSession(s => ({
@@ -238,6 +239,8 @@ export function AetherUIMain() {
       };
       reader.readAsDataURL(file);
     }
+    // Reset file input to allow uploading the same file again
+    event.target.value = '';
   };
   
   const handleCopyCode = (code: string, type: string) => {
@@ -518,19 +521,23 @@ export function AetherUIMain() {
                   </div>
                   
                   <TabsContent value="jsx" className="flex-1 m-0 overflow-y-auto">
-                    <Textarea
+                    <Editor
+                      height="100%"
+                      language="javascript"
+                      theme="vs-dark"
                       value={activeSession.jsxCode}
-                      onChange={(e) => updateActiveSession({ jsxCode: e.target.value })}
-                      className="w-full h-full p-4 font-code text-sm rounded-none border-none focus:ring-0"
-                      placeholder="JSX Code"
+                      onChange={(value) => updateActiveSession({ jsxCode: value || '' })}
+                      options={{ minimap: { enabled: false }, scrollbar: { vertical: 'auto' } }}
                     />
                   </TabsContent>
                   <TabsContent value="css" className="flex-1 m-0 overflow-y-auto">
-                    <Textarea
+                    <Editor
+                      height="100%"
+                      language="css"
+                      theme="vs-dark"
                       value={activeSession.cssCode}
-                      onChange={(e) => updateActiveSession({ cssCode: e.target.value })}
-                      className="w-full h-full p-4 font-code text-sm rounded-none border-none focus:ring-0"
-                      placeholder="CSS Code"
+                      onChange={(value) => updateActiveSession({ cssCode: value || '' })}
+                      options={{ minimap: { enabled: false }, scrollbar: { vertical: 'auto' } }}
                     />
                   </TabsContent>
                   <TabsContent value="refine" className="p-4 m-0">
