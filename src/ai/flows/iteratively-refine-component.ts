@@ -36,6 +36,7 @@ const prompt = ai.definePrompt({
   output: {schema: IterativelyRefineUIComponentOutputSchema},
   prompt: `You are an AI code assistant specializing in refining UI components. The user will provide you with the existing code of a UI component, along with a prompt describing the desired changes or refinements. Your task is to modify the code according to the user's instructions and return the refined code.
 
+The generated component MUST be responsive and adapt its layout for different screen sizes. Use media queries in your CSS to create distinct looks for mobile and desktop.
 You MUST generate CSS for styling. Do NOT use TailwindCSS. All styling should be in the CSS block.
 The user is using React with TypeScript and the lucide-react icon library.
 
