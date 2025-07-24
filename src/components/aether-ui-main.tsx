@@ -323,7 +323,7 @@ export function AetherUIMain() {
       </aside>
 
       {/* Main Content: Preview, Code, Properties */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col xl:flex-row overflow-hidden">
         {/* Preview Panel */}
         <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
           <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
