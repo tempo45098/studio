@@ -13,10 +13,11 @@ import {
   PanelResizeHandle,
   ImperativePanelGroupHandle,
 } from "react-resizable-panels"
-import Editor from '@monaco-editor/react';
+import Editor, { OnMount } from '@monaco-editor/react';
 
 import { generateUiComponent } from '@/ai/flows/generate-ui-component';
 import { iterativelyRefineUIComponent } from '@/ai/flows/iteratively-refine-component';
+import { askAiAboutCode } from '@/ai/flows/ask-ai-about-code';
 import type { Session, Message } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AetherLogo } from '@/components/icons';
-import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle, Smartphone, Monitor, Undo2, Redo2 } from 'lucide-react';
+import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle, Smartphone, Monitor, Undo2, Redo2, MessageSquareQuestion } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
@@ -104,9 +105,12 @@ export function AetherUIMain() {
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const [viewportMode, setViewportMode] = useState<'desktop' | 'mobile'>('desktop');
+  const [selectedCode, setSelectedCode] = useState<{ code: string; type: 'jsx' | 'css' } | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
+  const editorRef = useRef<any>(null);
 
 
   useEffect(() => {
@@ -226,49 +230,89 @@ export function AetherUIMain() {
 
     try {
       const isFirstPrompt = activeSession.jsxCode.includes('Your component will appear here');
-      let response;
       
-      if (isFirstPrompt) {
-        response = await generateUiComponent({
+      const codeSelectionMatch = prompt.match(/```(jsx|css)\n([\s\S]*?)\n```\n/);
+
+      if (codeSelectionMatch) {
+          const [_, lang, codeSnippet] = codeSelectionMatch;
+          const userQuery = prompt.replace(codeSelectionMatch[0], '').trim();
+          
+          const response = await askAiAboutCode({
+              codeSnippet,
+              userPrompt: userQuery,
+          });
+
+          if (response.responseType === 'explanation') {
+              const assistantMessage: Message = { id: uuidv4(), role: 'assistant', content: response.explanation! };
+              updateActiveSession(s => ({ chatHistory: [...s.chatHistory, assistantMessage] }));
+          } else if (response.responseType === 'code_update' && response.updatedCode) {
+              const assistantMessage: Message = { id: uuidv4(), role: 'assistant', content: `I've updated the code based on your request.` };
+              
+              let updatedJsx = activeSession.jsxCode;
+              let updatedCss = activeSession.cssCode;
+
+              if (lang === 'jsx') {
+                  updatedJsx = activeSession.jsxCode.replace(codeSnippet, response.updatedCode);
+              } else {
+                  updatedCss = activeSession.cssCode.replace(codeSnippet, response.updatedCode);
+              }
+
+              updateActiveSession(s => {
+                  const newVersion = { jsxCode: updatedJsx, cssCode: updatedCss };
+                  const currentHistory = Array.isArray(s.codeHistory) ? s.codeHistory : [{ jsxCode: s.jsxCode, cssCode: s.cssCode }];
+                  const currentV = s.currentVersion ?? 0;
+                  const history = currentHistory.slice(0, currentV + 1);
+                  const newHistory = [...history, newVersion].slice(-5);
+
+                  return {
+                      chatHistory: [...s.chatHistory, assistantMessage],
+                      jsxCode: newVersion.jsxCode,
+                      cssCode: newVersion.cssCode,
+                      codeHistory: newHistory,
+                      currentVersion: newHistory.length - 1,
+                  }
+              });
+          }
+      } else if (isFirstPrompt) {
+        const response = await generateUiComponent({
           prompt,
           imageDataUri: userMessage.imageUrl || undefined,
         });
+        const { jsxTsxCode, cssCode } = response;
+        const assistantMessage: Message = { id: uuidv4(), role: 'assistant', content: `I've created the component based on your request.` };
+        updateActiveSession(s => {
+          const newVersion = { jsxCode: jsxTsxCode, cssCode };
+          const newHistory = [newVersion];
+          return {
+            chatHistory: [...s.chatHistory, assistantMessage],
+            ...newVersion,
+            codeHistory: newHistory,
+            currentVersion: 0,
+          }
+        });
       } else {
-        response = await iterativelyRefineUIComponent({
+        const response = await iterativelyRefineUIComponent({
           userPrompt: prompt,
           baseComponentCode: activeSession.jsxCode,
           existingCss: activeSession.cssCode,
           imageDataUri: userMessage.imageUrl || undefined,
         });
+        const { refinedComponentCode, refinedCss } = response;
+        const assistantMessage: Message = { id: uuidv4(), role: 'assistant', content: `I've updated the component based on your request.` };
+        updateActiveSession(s => {
+          const newVersion = { jsxCode: refinedComponentCode, cssCode: refinedCss || '' };
+          const currentHistory = Array.isArray(s.codeHistory) ? s.codeHistory : [{ jsxCode: s.jsxCode, cssCode: s.cssCode }];
+          const currentV = s.currentVersion ?? 0;
+          const history = currentHistory.slice(0, currentV + 1);
+          const newHistory = [...history, newVersion].slice(-5);
+          return {
+            chatHistory: [...s.chatHistory, assistantMessage],
+            ...newVersion,
+            codeHistory: newHistory,
+            currentVersion: newHistory.length - 1,
+          }
+        });
       }
-
-      const { jsxTsxCode, cssCode } = 'jsxTsxCode' in response ? response : { jsxTsxCode: response.refinedComponentCode, cssCode: response.refinedCss || '' };
-      
-      const assistantMessage: Message = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: `I've updated the component based on your request: "${prompt}". Feel free to provide more feedback.`,
-      };
-      
-      updateActiveSession(s => {
-        const newVersion = { jsxCode: jsxTsxCode, cssCode: cssCode };
-        
-        // Ensure codeHistory exists and is an array
-        const currentHistory = Array.isArray(s.codeHistory) ? s.codeHistory : [{ jsxCode: s.jsxCode, cssCode: s.cssCode }];
-        const currentV = s.currentVersion ?? 0;
-
-        // Truncate history if we are not at the latest version
-        const history = currentHistory.slice(0, currentV + 1);
-        const newHistory = [...history, newVersion].slice(-5); // Keep last 5 versions
-
-        return {
-          chatHistory: [...s.chatHistory, assistantMessage],
-          jsxCode: jsxTsxCode,
-          cssCode: cssCode,
-          codeHistory: newHistory,
-          currentVersion: newHistory.length - 1,
-        }
-      });
 
     } catch (error) {
       console.error("AI Error:", error);
@@ -276,11 +320,12 @@ export function AetherUIMain() {
       updateActiveSession(s => ({ chatHistory: [...s.chatHistory, errorMessage] }));
       toast({
         title: "AI Error",
-        description: "Could not generate component. Please check the console for details.",
+        description: "Could not process request. Please check the console for details.",
         variant: "destructive"
       });
     } finally {
       setIsLoading(false);
+      setSelectedCode(null);
     }
   };
 
@@ -313,7 +358,6 @@ export function AetherUIMain() {
       };
       reader.readAsDataURL(file);
     }
-    // Reset file input to allow uploading the same file again
     if (event.target) {
       event.target.value = '';
     }
@@ -386,51 +430,23 @@ export function AetherUIMain() {
     if (!activeSession?.jsxCode) return 'render(null)';
     let code = activeSession.jsxCode;
     if (code.includes('Your component will appear here')) return 'render(<div data-aether-id="el-1">Your component will appear here.</div>)';
-  
-    // Avoid re-adding render if it's already there from a previous run or manual edit
-    if (/\brender\s*\(/.test(code)) {
-      return code;
-    }
-  
-    // Remove export default and trailing semicolon
+    if (/\brender\s*\(/.test(code)) return code;
+    
     let cleanedCode = code.replace(/export default\s+/, '').replace(/;$/, '');
+    const componentNameMatch = cleanedCode.match(/(?:function|class|const)\s+([A-Z]\w*)/);
   
-    // Find the component name
-    const componentNameMatch = cleanedCode.match(
-      /(?:function|class|const)\s+([A-Z]\w*)/
-    );
-  
-    let componentName = null;
     if (componentNameMatch) {
-      componentName = componentNameMatch[1];
-    }
-  
-    if (componentName) {
-      return `${cleanedCode}\n\nrender(<${componentName} />);`;
+      return `${cleanedCode}\n\nrender(<${componentNameMatch[1]} />);`;
     }
     
-    // Fallback if no component name is found: Check for a function that returns JSX
     const arrowMatch = cleanedCode.match(/const\s+([A-Z]\w*)\s*=\s*\([^)]*\)\s*=>/);
     if(arrowMatch) {
-      componentName = arrowMatch[1];
-      return `${cleanedCode}\n\nrender(<${componentName} />);`;
+      return `${cleanedCode}\n\nrender(<${arrowMatch[1]} />);`;
     }
     
-    // If all else fails, wrap in a render call that might not work but is the best guess
-    try {
-        // A bit of a hack: try to find a capitalized tag which indicates a component
-        const potentialComponent = cleanedCode.match(/<([A-Z]\w*)/);
-        if(potentialComponent) {
-            // This is not a reliable way to get the component to render, but it's a last resort
-        }
-    } catch(e) { /* ignore */ }
-    
-    // Final fallback
     return `render(<div>${cleanedCode}</div>)`;
-  
   }, [activeSession?.jsxCode]);
 
-  // Handle element selection in the preview
   const previewRef = useRef<HTMLDivElement>(null);
   
   const handlePreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -440,17 +456,14 @@ export function AetherUIMain() {
             target = null;
             break;
         }
-        target = target.parentElement;
+        target = target.parentElement as HTMLElement;
     }
-
     const selectedId = target ? target.getAttribute('data-aether-id') : null;
     updateActiveSession({ selectedElementId: selectedId });
   }
 
-  // Effect to apply selection attribute for styling
   useEffect(() => {
       if (!previewRef.current || !activeSession) return;
-      
       const allElements = previewRef.current.querySelectorAll('[data-aether-id]');
       allElements.forEach(el => {
           if (el.getAttribute('data-aether-id') === activeSession.selectedElementId) {
@@ -466,39 +479,42 @@ export function AetherUIMain() {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader className="animate-spin" /></div>;
   }
 
-  const toggleLeftPanel = () => {
-    if (panelGroupRef.current) {
-        const panel = panelGroupRef.current.getPanel(0);
-        if (panel) {
-            if (panel.isCollapsed()) {
-                panel.expand();
-            } else {
-                panel.collapse();
-            }
-        }
-    }
-  }
-
-  const toggleRightPanel = () => {
-    if (panelGroupRef.current) {
-        const panel = panelGroupRef.current.getPanel(2);
-        if (panel) {
-            if (panel.isCollapsed()) {
-                panel.expand();
-            } else {
-                panel.collapse();
-            }
-        }
-    }
-  }
+  const toggleLeftPanel = () => panelGroupRef.current?.getPanel(0)?.isCollapsed() ? panelGroupRef.current?.getPanel(0).expand() : panelGroupRef.current?.getPanel(0).collapse();
+  const toggleRightPanel = () => panelGroupRef.current?.getPanel(2)?.isCollapsed() ? panelGroupRef.current?.getPanel(2).expand() : panelGroupRef.current?.getPanel(2).collapse();
   
   const canUndo = activeSession && activeSession.codeHistory && activeSession.currentVersion > 0;
   const canRedo = activeSession && activeSession.codeHistory && activeSession.currentVersion < activeSession.codeHistory.length - 1;
 
+  const handleEditorDidMount: OnMount = (editor, monaco) => {
+    editorRef.current = editor;
+    editor.onMouseUp(() => {
+        const selection = editor.getSelection();
+        if (selection && !selection.isEmpty()) {
+            const model = editor.getModel();
+            if (model) {
+                const selectedText = model.getValueInRange(selection);
+                const language = model.getLanguageId();
+                setSelectedCode({
+                    code: selectedText,
+                    type: language === 'css' ? 'css' : 'jsx'
+                });
+            }
+        } else {
+            setSelectedCode(null);
+        }
+    });
+  };
+
+  const handleAskAboutCode = () => {
+    if (!selectedCode) return;
+    const formattedCode = "```" + selectedCode.type + "\n" + selectedCode.code + "\n```\n";
+    setPrompt(p => formattedCode + p);
+    setSelectedCode(null);
+  }
+
   return (
     <div className="h-screen w-full bg-background font-body text-foreground">
       <PanelGroup direction="horizontal" ref={panelGroupRef}>
-        {/* Left Panel: Chat & Sessions */}
         <Panel
           id="left-panel"
           defaultSize={25}
@@ -573,23 +589,21 @@ export function AetherUIMain() {
                   </div>
                 )}
               <form onSubmit={handlePromptSubmit} className="flex gap-2">
-                <Input
+                <Textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
                   placeholder="Describe the component you want..."
                   disabled={isLoading}
+                  className="min-h-0"
+                  rows={prompt.split('\n').length}
                 />
-                <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label="Upload Image">
-                  <Paperclip />
-                </Button>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    accept="image/*"
-                />
-                <Button type="submit" disabled={isLoading || !prompt.trim()} size="icon" aria-label="Send"><ChevronRight /></Button>
+                <div className="flex flex-col gap-2">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label="Upload Image">
+                      <Paperclip />
+                    </Button>
+                    <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                    <Button type="submit" disabled={isLoading || !prompt.trim()} size="icon" aria-label="Send"><ChevronRight /></Button>
+                </div>
               </form>
                <Button variant="link" className="p-0 h-auto mt-2 text-xs" onClick={() => !isLoading && setPrompt(defaultInitialPrompt)}>
                  Try an example: A modern login form
@@ -600,10 +614,8 @@ export function AetherUIMain() {
         
         <PanelResizeHandle className="w-2 bg-border hover:bg-primary transition-colors" />
 
-        {/* Main Content: Preview, Code, Properties */}
         <Panel id="main-panel" defaultSize={75}>
           <PanelGroup direction="vertical">
-            {/* Preview Panel */}
             <Panel defaultSize={60} minSize={20}>
               <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto h-full">
                 <div className="flex items-center gap-2">
@@ -632,11 +644,7 @@ export function AetherUIMain() {
                 <Card className="flex-1 w-full shadow-lg relative flex items-center justify-center p-4 bg-muted/20" onClick={handlePreviewClick} ref={previewRef}>
                     <style>{activeSession.cssCode}</style>
                     <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
-                        <div
-                            className={`relative bg-background shadow-2xl rounded-lg transition-all duration-300 ease-in-out overflow-auto ${
-                                viewportMode === 'mobile' ? 'w-[375px] h-[667px]' : 'w-full h-full'
-                            }`}
-                        >
+                        <div className={`relative bg-background shadow-2xl rounded-lg transition-all duration-300 ease-in-out overflow-auto ${viewportMode === 'mobile' ? 'w-[375px] h-[667px]' : 'w-full h-full'}`}>
                             <div className="w-full h-full">
                                 <LivePreview className="w-full h-full flex items-center justify-center p-4" />
                             </div>
@@ -651,15 +659,20 @@ export function AetherUIMain() {
 
             <PanelResizeHandle className="h-2 bg-border hover:bg-primary transition-colors" />
 
-            {/* Bottom Panel */}
             <Panel id="bottom-panel" defaultSize={40} minSize={20} collapsible collapsedSize={0} onCollapse={() => setIsRightPanelCollapsed(true)} onExpand={() => setIsRightPanelCollapsed(false)}>
-              <aside className="h-full flex-shrink-0 bg-card flex flex-col overflow-hidden">
+              <aside className="h-full flex-shrink-0 bg-card flex flex-col overflow-hidden relative">
+                 {selectedCode && (
+                    <div className="absolute top-14 right-8 z-10">
+                        <Button onClick={handleAskAboutCode}>
+                            <MessageSquareQuestion className="mr-2" /> Ask AI about selection
+                        </Button>
+                    </div>
+                 )}
                 <Tabs defaultValue="jsx" className="flex-1 flex flex-col">
                   <div className="flex-shrink-0 px-4 pt-4 flex justify-between items-center">
                     <TabsList>
-                      <TabsTrigger value="jsx">JSX</TabsTrigger>
-                      <TabsTrigger value="css">CSS</TabsTrigger>
-                      <TabsTrigger value="refine">Refine</TabsTrigger>
+                      <TabsTrigger value="jsx" onClick={() => setSelectedCode(null)}>JSX</TabsTrigger>
+                      <TabsTrigger value="css" onClick={() => setSelectedCode(null)}>CSS</TabsTrigger>
                     </TabsList>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="icon" onClick={() => handleCopyCode(activeSession.jsxCode, 'JSX')} aria-label="Copy JSX"><Clipboard /></Button>
@@ -673,7 +686,11 @@ export function AetherUIMain() {
                       language="javascript"
                       theme="vs-dark"
                       value={activeSession.jsxCode}
-                      onChange={(value) => updateActiveSession({ jsxCode: value || '' })}
+                      onChange={(value) => {
+                        updateActiveSession({ jsxCode: value || '' });
+                        setSelectedCode(null);
+                      }}
+                      onMount={handleEditorDidMount}
                       options={{ minimap: { enabled: false }, scrollbar: { vertical: 'auto' } }}
                     />
                   </TabsContent>
@@ -683,15 +700,13 @@ export function AetherUIMain() {
                       language="css"
                       theme="vs-dark"
                       value={activeSession.cssCode}
-                      onChange={(value) => updateActiveSession({ cssCode: value || '' })}
+                      onChange={(value) => {
+                        updateActiveSession({ cssCode: value || '' });
+                        setSelectedCode(null);
+                      }}
+                       onMount={handleEditorDidMount}
                       options={{ minimap: { enabled: false }, scrollbar: { vertical: 'auto' } }}
                     />
-                  </TabsContent>
-                  <TabsContent value="refine" className="p-4 m-0">
-                     <PropertyEditor onRefine={(p) => {
-                       setPrompt(p);
-                       handlePromptSubmit({ preventDefault: () => {} } as any);
-                     }} isLoading={isLoading} />
                   </TabsContent>
                 </Tabs>
               </aside>
@@ -700,42 +715,5 @@ export function AetherUIMain() {
         </Panel>
       </PanelGroup>
     </div>
-  );
-}
-
-
-function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) => void, isLoading: boolean }) {
-  const [refinePrompt, setRefinePrompt] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onRefine(refinePrompt);
-    setRefinePrompt('');
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Iterative Refinement</CardTitle>
-        <CardDescription>
-          Provide follow-up instructions to modify the component.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Textarea
-            value={refinePrompt}
-            onChange={(e) => setRefinePrompt(e.target.value)}
-            placeholder="e.g., 'Make the button purple' or 'Add a field for username'"
-            className="h-24"
-            disabled={isLoading}
-          />
-          <Button type="submit" disabled={isLoading || !refinePrompt.trim()} className="w-full">
-            {isLoading ? <Loader className="animate-spin mr-2" /> : null}
-            Refine Component
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
   );
 }
