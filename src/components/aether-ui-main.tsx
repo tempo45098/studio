@@ -168,14 +168,21 @@ export function AetherUIMain() {
   const handlePromptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim() || isLoading || !activeSession) return;
-  
-    const userMessage: Message = { id: uuidv4(), role: 'user', content: prompt };
+
+    const userMessage: Message = { 
+      id: uuidv4(), 
+      role: 'user', 
+      content: prompt,
+      imageUrl: activeSession.uploadedImage 
+    };
     updateActiveSession(s => ({
-      chatHistory: [...s.chatHistory, userMessage]
+      chatHistory: [...s.chatHistory, userMessage],
+      uploadedImage: null, // Move image from temp state to chat history
     }));
+
     setPrompt('');
     setIsLoading(true);
-  
+
     try {
       const isFirstPrompt = activeSession.jsxCode.includes('Your component will appear here');
       let response;
@@ -183,17 +190,17 @@ export function AetherUIMain() {
       if (isFirstPrompt) {
         response = await generateUiComponent({
           prompt,
-          imageDataUri: activeSession.uploadedImage || undefined,
+          imageDataUri: userMessage.imageUrl || undefined,
         });
       } else {
         response = await iterativelyRefineUIComponent({
           userPrompt: prompt,
           baseComponentCode: activeSession.jsxCode,
           existingCss: activeSession.cssCode,
-          imageDataUri: activeSession.uploadedImage || undefined,
+          imageDataUri: userMessage.imageUrl || undefined,
         });
       }
-  
+
       const { jsxTsxCode, cssCode } = 'jsxTsxCode' in response ? response : { jsxTsxCode: response.refinedComponentCode, cssCode: response.refinedCss || '' };
       
       const assistantMessage: Message = {
@@ -206,9 +213,8 @@ export function AetherUIMain() {
         chatHistory: [...s.chatHistory, assistantMessage],
         jsxCode: jsxTsxCode,
         cssCode: cssCode,
-        uploadedImage: null, // Clear image after use
       }));
-  
+
     } catch (error) {
       console.error("AI Error:", error);
       const errorMessage: Message = { id: uuidv4(), role: 'system', content: 'An error occurred. Please try again.' };
@@ -389,6 +395,9 @@ export function AetherUIMain() {
                       <Avatar className="w-8 h-8"><AvatarFallback>{msg.role === 'assistant' ? <Bot /> : 'S'}</AvatarFallback></Avatar>
                     )}
                     <div className={`rounded-lg px-4 py-2 max-w-[80%] text-sm ${ msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted' } ${msg.role === 'system' ? 'w-full text-center bg-transparent text-muted-foreground text-xs italic' : ''}`}>
+                      {msg.imageUrl && (
+                        <Image src={msg.imageUrl} alt="Uploaded content" width={200} height={200} className="rounded-md mb-2" />
+                      )}
                       <p className="whitespace-pre-wrap">{msg.content}</p>
                     </div>
                     {msg.role === 'user' && (
@@ -474,7 +483,7 @@ export function AetherUIMain() {
                     <style>{activeSession.cssCode}</style>
                     <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
                         <div
-                            className={`relative bg-background shadow-2xl rounded-lg transition-all duration-300 ease-in-out overflow-hidden ${
+                            className={`relative bg-background shadow-2xl rounded-lg transition-all duration-300 ease-in-out overflow-auto ${
                                 viewportMode === 'mobile' ? 'w-[375px] h-[667px]' : 'w-full h-full'
                             }`}
                         >
@@ -576,5 +585,3 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
-
-    
