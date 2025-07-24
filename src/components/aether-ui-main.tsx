@@ -439,8 +439,8 @@ export function AetherUIMain() {
     }
   }
   
-  const canUndo = activeSession.currentVersion > 0;
-  const canRedo = activeSession.currentVersion < activeSession.codeHistory.length - 1;
+  const canUndo = activeSession && activeSession.codeHistory && activeSession.currentVersion > 0;
+  const canRedo = activeSession && activeSession.codeHistory && activeSession.currentVersion < activeSession.codeHistory.length - 1;
 
   return (
     <div className="h-screen w-full bg-background font-body text-foreground">
@@ -686,5 +686,7 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
+
+    
 
     
