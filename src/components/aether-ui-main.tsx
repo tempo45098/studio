@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -7,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Panel,
   PanelGroup,
@@ -171,7 +171,7 @@ export function AetherUIMain() {
 
   const handleNewSession = () => {
     const newSession = getInitialSession();
-    setSessions(prev => [...prev, newSession]);
+    setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
   };
   
@@ -478,10 +478,10 @@ export function AetherUIMain() {
           <aside className="h-full flex flex-col">
             <div className="p-4 border-b border-border flex-shrink-0">
               <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <AetherLogo className="w-8 h-8 text-primary" />
-                  <h1 className="text-2xl font-bold font-headline">Aether UI</h1>
-                </div>
+                 <Link href="/" className="flex items-center gap-3">
+                    <AetherLogo className="w-8 h-8 text-primary" />
+                    <h1 className="text-2xl font-bold font-headline">Aether UI</h1>
+                 </Link>
               </div>
               <div className="flex gap-2">
                 <Select value={activeSessionId || ''} onValueChange={handleSelectSession}>
@@ -705,13 +705,3 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
-
-    
-
-    
-
-    
-
-
-
-    
