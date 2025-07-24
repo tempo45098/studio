@@ -34,7 +34,7 @@ const prompt = ai.definePrompt({
   prompt: `You are a UI component code generation expert. Generate JSX/TSX and standard CSS code based on the user's prompt.
 The generated component MUST be responsive and adapt its layout for different screen sizes. Use media queries in your CSS to create distinct looks for mobile and desktop.
 You MUST generate CSS for styling. Do NOT use TailwindCSS. All styling should be in the CSS block.
-The user is using React with TypeScript and the lucide-react icon library.
+The user is using React with TypeScript. For any icons, use the lucide-react library by referencing them from the \`LucideIcons\` object (e.g., \`<LucideIcons.Mail />\`).
 
 Your generated component should be a single default exported function or const.
 Do NOT include any other named exports.

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -343,7 +344,7 @@ export function AetherUIMain() {
     React,
     useState,
     useEffect,
-    ...LucideIcons,
+    LucideIcons,
     Accordion, AccordionContent, AccordionItem, AccordionTrigger,
     AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, AlertDialogPortal, AlertDialogTitle, AlertDialogTrigger,
     Alert, AlertDescription, AlertTitle,
@@ -710,3 +711,4 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     
 
     
+
