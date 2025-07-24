@@ -22,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AetherLogo } from '@/components/icons';
-import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle } from 'lucide-react';
+import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle, Smartphone, Monitor } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
@@ -86,6 +86,7 @@ export function AetherUIMain() {
   const [isClient, setIsClient] = useState(false);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
+  const [viewportMode, setViewportMode] = useState<'desktop' | 'mobile'>('desktop');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -457,20 +458,35 @@ export function AetherUIMain() {
                   </Button>
                   <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
                   <div className="flex-grow" />
+                   <div className="flex items-center gap-2">
+                      <Button variant={viewportMode === 'desktop' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewportMode('desktop')}>
+                        <Monitor />
+                      </Button>
+                      <Button variant={viewportMode === 'mobile' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewportMode('mobile')}>
+                        <Smartphone />
+                      </Button>
+                    </div>
+                  <div className="flex-grow" />
                   <Button variant="ghost" size="icon" onClick={() => document.querySelector<HTMLButtonElement>('[data-panel-id="resizable-panel-group-1-panel-2"]')?.click()}>
                     {isRightPanelCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
                   </Button>
                 </div>
-                <Card className="flex-1 w-full shadow-lg relative">
-                  <style>{activeSession.cssCode}</style>
-                   <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
-                    <div className="p-4 h-full w-full flex items-center justify-center">
-                        <LivePreview />
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-red-900 text-white p-2 font-mono text-xs">
-                        <LiveError />
-                    </div>
-                  </LiveProvider>
+                <Card className="flex-1 w-full shadow-lg relative flex items-center justify-center p-4 bg-muted/20">
+                    <style>{activeSession.cssCode}</style>
+                    <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
+                        <div
+                            className={`relative bg-background shadow-2xl rounded-lg transition-all duration-300 ease-in-out ${
+                                viewportMode === 'mobile' ? 'w-[375px] h-[667px]' : 'w-full h-full'
+                            }`}
+                        >
+                            <div className="p-4 h-full w-full flex items-center justify-center overflow-auto">
+                                <LivePreview />
+                            </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-red-900 text-white p-2 font-mono text-xs">
+                            <LiveError />
+                        </div>
+                    </LiveProvider>
                 </Card>
               </main>
             </Panel>
