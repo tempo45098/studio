@@ -16,77 +16,8 @@ import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User } fr
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
-
-const createPreviewHtml = (jsx: string, css: string) => {
-  // Enhanced logic to find the component name, whether it's a function or a const
-  let componentName = '';
-  const functionMatch = jsx.match(/export default function (\w+)/);
-  const constMatch = jsx.match(/export default (\w+);/);
-  const inlineConstMatch = jsx.match(/const (\w+) = \(\) =>/);
-
-  if (functionMatch && functionMatch[1]) {
-    componentName = functionMatch[1];
-  } else if (constMatch && constMatch[1]) {
-    componentName = constMatch[1];
-  } else if (inlineConstMatch && inlineConstMatch[1]) {
-     componentName = inlineConstMatch[1];
-  } else {
-    // Fallback for direct export: export default () => { ... }
-    componentName = 'MyComponent';
-    jsx = jsx.replace('export default', `const ${componentName} =`);
-  }
-
-  // Remove imports as they are not needed in the preview sandbox
-  const cleanJsx = jsx.replace(/import .*/g, '').replace(/export default .*/, '');
-
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <title>Component Preview</title>
-        <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-        <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-        <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-        <style>
-          body { 
-            margin: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
-            background-color: transparent;
-            color: #E0E0E0; /* Added for better visibility of error messages in dark mode */
-          }
-          #root {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            padding: 1rem;
-            box-sizing: border-box;
-          }
-          ${css}
-        </style>
-      </head>
-      <body>
-        <div id="root"></div>
-        <script type="text/babel">
-          try {
-            ${cleanJsx}
-            // Ensure the component name is available for rendering
-            if (typeof ${componentName} !== 'undefined') {
-              ReactDOM.render(React.createElement(${componentName}), document.getElementById('root'));
-            } else {
-              throw new Error('Component could not be rendered. Check the export statement.');
-            }
-          } catch (e) {
-            // If there's an error, display it in the preview
-            const root = document.getElementById('root');
-            root.innerHTML = '<pre style="color: red; padding: 1rem;">' + e.message.replace(/</g, "&lt;") + '</pre>';
-          }
-        </script>
-      </body>
-    </html>
-  `;
-};
+import { LiveProvider, LivePreview, LiveError } from 'react-live';
+import * as LucideIcons from 'lucide-react';
 
 const defaultInitialPrompt = "A modern, sleek login form with email and password fields, a submit button, and a 'forgot password' link. The form should be centered on the page. Use placeholders instead of labels.";
 
@@ -277,10 +208,24 @@ export function AetherUIMain() {
     }
   }, [activeSession?.chatHistory]);
 
-  const previewContent = useMemo(() => {
+  const liveProviderScope = { 
+    ...LucideIcons, 
+    useState, 
+    useEffect, 
+    Card,
+    Button 
+  };
+  
+  const cleanedJsxCode = useMemo(() => {
     if (!activeSession) return '';
-    return createPreviewHtml(activeSession.jsxCode, activeSession.cssCode);
+    return activeSession.jsxCode
+      .replace(/import .* from .*/g, '') // remove imports
+      .replace(/export default function \w+\(\) {/, 'function Component() {') // standard function
+      .replace(/const (\w+) = \(\) => {/, 'const Component = () => {') // arrow function
+      .replace(/export default \w+;/, 'render(<Component />)') // export
+      .replace(/export default \(\) => {/, 'render(() => {'); // inline export
   }, [activeSession]);
+
 
   if (!isClient || !activeSession) {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader className="animate-spin" /></div>;
@@ -363,22 +308,25 @@ export function AetherUIMain() {
       </aside>
 
       {/* Main Content: Preview, Code, Properties */}
-      <main className="flex-1 flex flex-col xl:flex-row overflow-hidden">
+      <main className="flex-1 flex flex-col xl:grid xl:grid-cols-2 overflow-hidden">
         {/* Preview Panel */}
-        <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
+        <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto xl:col-span-1">
           <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
-          <Card className="flex-1 w-full shadow-lg">
-            <iframe
-              srcDoc={previewContent}
-              title="Component Preview"
-              className="w-full h-full border-0 rounded-lg"
-              sandbox="allow-scripts"
-            />
+          <Card className="flex-1 w-full shadow-lg relative">
+            <style>{activeSession.cssCode}</style>
+             <LiveProvider code={cleanedJsxCode} scope={liveProviderScope} noInline={true}>
+              <div className="p-4 h-full w-full flex items-center justify-center">
+                  <LivePreview />
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 bg-red-900 text-white p-2 font-mono text-xs">
+                  <LiveError />
+              </div>
+            </LiveProvider>
           </Card>
         </div>
         
         {/* Right Panel */}
-        <aside className="w-full xl:w-[50%] xl:max-w-3xl flex-shrink-0 border-t xl:border-t-0 xl:border-l border-border bg-card flex flex-col overflow-hidden">
+        <aside className="w-full xl:col-span-1 flex-shrink-0 border-t xl:border-t-0 xl:border-l border-border bg-card flex flex-col overflow-hidden">
           <Tabs defaultValue="jsx" className="flex-1 flex flex-col">
             <div className="flex-shrink-0 px-4 pt-4 flex justify-between items-center">
               <TabsList>
@@ -448,5 +396,3 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
-
-    
