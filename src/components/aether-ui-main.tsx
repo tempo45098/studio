@@ -179,13 +179,12 @@ export function AetherUIMain() {
     try {
       const isFirstPrompt = activeSession.jsxCode.includes('Your component will appear here');
       let response;
-      const input = {
-        prompt,
-        imageDataUri: activeSession.uploadedImage || undefined,
-      };
-
+      
       if (isFirstPrompt) {
-        response = await generateUiComponent(input);
+        response = await generateUiComponent({
+          prompt,
+          imageDataUri: activeSession.uploadedImage || undefined,
+        });
       } else {
         response = await iterativelyRefineUIComponent({
           userPrompt: prompt,
@@ -475,12 +474,12 @@ export function AetherUIMain() {
                     <style>{activeSession.cssCode}</style>
                     <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
                         <div
-                            className={`relative bg-background shadow-2xl rounded-lg transition-all duration-300 ease-in-out ${
+                            className={`relative bg-background shadow-2xl rounded-lg transition-all duration-300 ease-in-out overflow-hidden ${
                                 viewportMode === 'mobile' ? 'w-[375px] h-[667px]' : 'w-full h-full'
                             }`}
                         >
-                            <div className="p-4 h-full w-full flex items-center justify-center overflow-auto">
-                                <LivePreview />
+                            <div className="w-full h-full">
+                                <LivePreview className="w-full h-full flex items-center justify-center p-4" />
                             </div>
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 bg-red-900 text-white p-2 font-mono text-xs">
@@ -526,7 +525,10 @@ export function AetherUIMain() {
                     />
                   </TabsContent>
                   <TabsContent value="refine" className="p-4 m-0">
-                     <PropertyEditor onRefine={(p) => handlePromptSubmit({ preventDefault: () => {}, currentTarget: { value: p } } as any)} isLoading={isLoading} />
+                     <PropertyEditor onRefine={(p) => {
+                       setPrompt(p);
+                       handlePromptSubmit({ preventDefault: () => {} } as any);
+                     }} isLoading={isLoading} />
                   </TabsContent>
                 </Tabs>
               </aside>
@@ -574,3 +576,5 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
+
+    
