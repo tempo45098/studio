@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
 import { LiveProvider, LivePreview, LiveError } from 'react-live';
 import * as LucideIcons from 'lucide-react';
+import * as ShadcnUI from './ui';
 
 const defaultInitialPrompt = "A modern, sleek login form with email and password fields, a submit button, and a 'forgot password' link. The form should be centered on the page. Use placeholders instead of labels.";
 
@@ -210,10 +211,9 @@ export function AetherUIMain() {
 
   const liveProviderScope = { 
     ...LucideIcons, 
+    ...ShadcnUI,
     useState, 
     useEffect, 
-    Card,
-    Button 
   };
 
   if (!isClient || !activeSession) {
@@ -299,7 +299,7 @@ export function AetherUIMain() {
       {/* Main Content: Preview, Code, Properties */}
       <main className="flex-1 flex flex-col xl:flex-row overflow-hidden">
         {/* Preview Panel */}
-        <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto xl:col-span-1">
+        <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
           <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
           <Card className="flex-1 w-full shadow-lg relative">
             <style>{activeSession.cssCode}</style>
@@ -315,7 +315,7 @@ export function AetherUIMain() {
         </div>
         
         {/* Right Panel */}
-        <aside className="w-full xl:col-span-1 flex-shrink-0 border-t xl:border-t-0 xl:border-l border-border bg-card flex flex-col overflow-hidden">
+        <aside className="w-full xl:w-[500px] flex-shrink-0 border-t xl:border-t-0 xl:border-l border-border bg-card flex flex-col overflow-hidden">
           <Tabs defaultValue="jsx" className="flex-1 flex flex-col">
             <div className="flex-shrink-0 px-4 pt-4 flex justify-between items-center">
               <TabsList>
@@ -385,3 +385,5 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
+
+    
