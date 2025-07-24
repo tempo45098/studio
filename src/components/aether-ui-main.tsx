@@ -308,15 +308,19 @@ export function AetherUIMain() {
 
   const preparedCode = useMemo(() => {
     if (!activeSession?.jsxCode) return 'render(null)';
-    const code = activeSession.jsxCode;
+    let code = activeSession.jsxCode;
     if (code.includes('Your component will appear here')) return 'render(<div>Your component will appear here.</div>)';
+  
+    // Avoid re-adding render if it's already there from a previous run or manual edit
+    if (/\brender\s*\(/.test(code)) {
+      return code;
+    }
   
     // Remove export default and trailing semicolon
     let cleanedCode = code.replace(/export default\s+/, '').replace(/;$/, '');
   
     // Find the component name
     const componentNameMatch = cleanedCode.match(
-      // For function declarations, function expressions, class declarations, and arrow functions assigned to a const/let/var
       /(?:function|class)\s+([A-Z]\w*)|(?:const|let|var)\s+([A-Z]\w*)\s*=\s*(?:React\.forwardRef)?\s*\(/
     );
   
@@ -324,29 +328,26 @@ export function AetherUIMain() {
     if (componentNameMatch) {
       componentName = componentNameMatch[1] || componentNameMatch[2];
     } else {
-       // Fallback for simple arrow function components: const MyComponent = () => ...
        const arrowMatch = cleanedCode.match(/const\s+([A-Z]\w*)\s*=\s*\([^)]*\)\s*=>/);
        if (arrowMatch) {
          componentName = arrowMatch[1];
        }
     }
   
-    // If a component name is found, append the render call
     if (componentName) {
-      // Check if render is already present
-      if (!/\brender\s*\(/.test(cleanedCode)) {
-        cleanedCode += `\n\nrender(<${componentName} />);`;
-      }
-      return cleanedCode;
+      return `${cleanedCode}\n\nrender(<${componentName} />);`;
+    }
+    
+    // Fallback if no component name is found: Check for a function that returns JSX
+    const functionMatch = cleanedCode.match(/function\s*([A-Z]\w*)\s*\([^)]*\)\s*\{/);
+    if(functionMatch) {
+      componentName = functionMatch[1];
+      return `${cleanedCode}\n\nrender(<${componentName} />);`;
     }
   
-    // Fallback if no component name could be reliably found
-    return `
-      ${cleanedCode}
-      // Could not reliably detect the component name to render.
-      // Please ensure your component is a default export and is named with PascalCase.
-      render(null);
-    `;
+    // If all else fails, wrap in a render call that might not work but is the best guess
+    return `render(<div>${cleanedCode}</div>)`;
+  
   }, [activeSession?.jsxCode]);
 
   if (!isClient || !activeSession) {
@@ -592,3 +593,5 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
+
+    
