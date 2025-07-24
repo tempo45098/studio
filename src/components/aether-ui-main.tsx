@@ -433,7 +433,7 @@ export function AetherUIMain() {
                   placeholder="Describe the component you want..."
                   disabled={isLoading}
                 />
-                <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label="Upload Image">
+                <Button type="button" variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label="Upload Image">
                   <Paperclip />
                 </Button>
                 <input
