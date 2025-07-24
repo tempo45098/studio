@@ -20,5 +20,6 @@ export interface Message {
     uploadedImage: string | null;
     codeHistory: CodeVersion[];
     currentVersion: number;
+    selectedElementId: string | null;
   }
   

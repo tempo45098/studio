@@ -78,7 +78,7 @@ const creativeSessionNames = [
 
 const getInitialSession = (): Session => {
     const initialCode = {
-        jsxCode: '<div>Your component will appear here.</div>',
+        jsxCode: '<div data-aether-id="el-1">Your component will appear here.</div>',
         cssCode: '/* Your component CSS will appear here */'
     };
     return {
@@ -90,6 +90,7 @@ const getInitialSession = (): Session => {
         uploadedImage: null,
         codeHistory: [initialCode],
         currentVersion: 0,
+        selectedElementId: null,
     };
 };
 
@@ -118,14 +119,15 @@ export function AetherUIMain() {
         
         // Migration for older sessions
         const migratedSessions = parsedSessions.map(session => {
-          if (!session.codeHistory) {
-            return {
-              ...session,
-              codeHistory: [{ jsxCode: session.jsxCode, cssCode: session.cssCode }],
-              currentVersion: 0
-            };
+          let migratedSession = { ...session };
+          if (!migratedSession.codeHistory) {
+            migratedSession.codeHistory = [{ jsxCode: session.jsxCode, cssCode: session.cssCode }];
+            migratedSession.currentVersion = 0;
           }
-          return session;
+          if (migratedSession.selectedElementId === undefined) {
+             migratedSession.selectedElementId = null;
+          }
+          return migratedSession;
         });
 
         setSessions(migratedSessions);
@@ -283,7 +285,7 @@ export function AetherUIMain() {
   };
 
   const handleUndo = () => {
-    if (!activeSession || activeSession.currentVersion <= 0) return;
+    if (!activeSession || !activeSession.codeHistory || activeSession.currentVersion <= 0) return;
     const newVersionIndex = activeSession.currentVersion - 1;
     const newVersion = activeSession.codeHistory[newVersionIndex];
     updateActiveSession({
@@ -293,7 +295,7 @@ export function AetherUIMain() {
   };
 
   const handleRedo = () => {
-    if (!activeSession || activeSession.currentVersion >= activeSession.codeHistory.length - 1) return;
+    if (!activeSession || !activeSession.codeHistory || activeSession.currentVersion >= activeSession.codeHistory.length - 1) return;
     const newVersionIndex = activeSession.currentVersion + 1;
     const newVersion = activeSession.codeHistory[newVersionIndex];
     updateActiveSession({
@@ -383,7 +385,7 @@ export function AetherUIMain() {
   const preparedCode = useMemo(() => {
     if (!activeSession?.jsxCode) return 'render(null)';
     let code = activeSession.jsxCode;
-    if (code.includes('Your component will appear here')) return 'render(<div>Your component will appear here.</div>)';
+    if (code.includes('Your component will appear here')) return 'render(<div data-aether-id="el-1">Your component will appear here.</div>)';
   
     // Avoid re-adding render if it's already there from a previous run or manual edit
     if (/\brender\s*\(/.test(code)) {
@@ -427,6 +429,38 @@ export function AetherUIMain() {
     return `render(<div>${cleanedCode}</div>)`;
   
   }, [activeSession?.jsxCode]);
+
+  // Handle element selection in the preview
+  const previewRef = useRef<HTMLDivElement>(null);
+  
+  const handlePreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    let target = e.target as HTMLElement;
+    while(target && !target.hasAttribute('data-aether-id')) {
+        if (target === previewRef.current) {
+            target = null;
+            break;
+        }
+        target = target.parentElement;
+    }
+
+    const selectedId = target ? target.getAttribute('data-aether-id') : null;
+    updateActiveSession({ selectedElementId: selectedId });
+  }
+
+  // Effect to apply selection attribute for styling
+  useEffect(() => {
+      if (!previewRef.current || !activeSession) return;
+      
+      const allElements = previewRef.current.querySelectorAll('[data-aether-id]');
+      allElements.forEach(el => {
+          if (el.getAttribute('data-aether-id') === activeSession.selectedElementId) {
+              el.setAttribute('data-aether-id-selected', 'true');
+          } else {
+              el.removeAttribute('data-aether-id-selected');
+          }
+      });
+  }, [activeSession, activeSession?.selectedElementId]);
+
 
   if (!isClient || !activeSession) {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader className="animate-spin" /></div>;
@@ -595,7 +629,7 @@ export function AetherUIMain() {
                     {isRightPanelCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
                   </Button>
                 </div>
-                <Card className="flex-1 w-full shadow-lg relative flex items-center justify-center p-4 bg-muted/20">
+                <Card className="flex-1 w-full shadow-lg relative flex items-center justify-center p-4 bg-muted/20" onClick={handlePreviewClick} ref={previewRef}>
                     <style>{activeSession.cssCode}</style>
                     <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
                         <div

@@ -39,6 +39,7 @@ const prompt = ai.definePrompt({
 The generated component MUST be responsive and adapt its layout for different screen sizes. Use media queries in your CSS to create distinct looks for mobile and desktop.
 You MUST generate CSS for styling. Do NOT use TailwindCSS. All styling should be in the CSS block.
 The user is using React with TypeScript. For any icons, use the lucide-react library by referencing them from the \`LucideIcons\` object (e.g., \`<LucideIcons.Mail />\`).
+Crucially, you MUST ensure that every JSX element has a unique 'data-aether-id' attribute. Preserve existing 'data-aether-id' attributes where possible. If adding new elements, assign them new, unique IDs (e.g., 'el-10', 'el-11').
 
 Your generated component should be a single default exported function or const.
 Do NOT include any other named exports.
