@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AetherLogo } from '@/components/icons';
-import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle, Smartphone, Monitor, Undo2, Redo2, MessageSquareQuestion } from 'lucide-react';
+import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle, Smartphone, Monitor, Undo2, Redo2, MessageSquareQuote } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
@@ -664,7 +664,7 @@ export function AetherUIMain() {
                  {selectedCode && (
                     <div className="absolute top-14 right-8 z-10">
                         <Button onClick={handleAskAboutCode}>
-                            <MessageSquareQuestion className="mr-2" /> Ask AI about selection
+                            <MessageSquareQuote className="mr-2" /> Ask AI about selection
                         </Button>
                     </div>
                  )}
