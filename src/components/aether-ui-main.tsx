@@ -26,7 +26,7 @@ const getInitialSession = (): Session => ({
   name: `Session ${new Date().toLocaleString()}`,
   createdAt: new Date().toISOString(),
   chatHistory: [{ id: uuidv4(), role: 'system', content: 'New session started.' }],
-  jsxCode: '// Your component code will appear here',
+  jsxCode: 'export default () => <p>Your component will appear here.</p>;',
   cssCode: '/* Your component CSS will appear here */',
 });
 
@@ -125,7 +125,7 @@ export function AetherUIMain() {
     setIsLoading(true);
   
     try {
-      const isFirstPrompt = activeSession.jsxCode.startsWith('//');
+      const isFirstPrompt = activeSession.jsxCode.includes('Your component will appear here');
       let response;
       if (isFirstPrompt) {
         response = await generateUiComponent({ prompt });
@@ -215,17 +215,6 @@ export function AetherUIMain() {
     Card,
     Button 
   };
-  
-  const cleanedJsxCode = useMemo(() => {
-    if (!activeSession) return '';
-    return activeSession.jsxCode
-      .replace(/import .* from .*/g, '') // remove imports
-      .replace(/export default function \w+\(\) {/, 'function Component() {') // standard function
-      .replace(/const (\w+) = \(\) => {/, 'const Component = () => {') // arrow function
-      .replace(/export default \w+;/, 'render(<Component />)') // export
-      .replace(/export default \(\) => {/, 'render(() => {'); // inline export
-  }, [activeSession]);
-
 
   if (!isClient || !activeSession) {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader className="animate-spin" /></div>;
@@ -308,13 +297,13 @@ export function AetherUIMain() {
       </aside>
 
       {/* Main Content: Preview, Code, Properties */}
-      <main className="flex-1 flex flex-col xl:grid xl:grid-cols-2 overflow-hidden">
+      <main className="flex-1 flex flex-col xl:flex-row overflow-hidden">
         {/* Preview Panel */}
         <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto xl:col-span-1">
           <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
           <Card className="flex-1 w-full shadow-lg relative">
             <style>{activeSession.cssCode}</style>
-             <LiveProvider code={cleanedJsxCode} scope={liveProviderScope} noInline={true}>
+             <LiveProvider code={activeSession.jsxCode} scope={liveProviderScope} noInline={false}>
               <div className="p-4 h-full w-full flex items-center justify-center">
                   <LivePreview />
               </div>
