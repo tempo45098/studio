@@ -113,12 +113,25 @@ export function AetherUIMain() {
       const savedSessions = localStorage.getItem('aether-sessions');
       const savedActiveId = localStorage.getItem('aether-active-session');
       if (savedSessions) {
-        const parsedSessions = JSON.parse(savedSessions);
-        setSessions(parsedSessions);
-        if (savedActiveId && parsedSessions.some((s: Session) => s.id === savedActiveId)) {
+        const parsedSessions: Session[] = JSON.parse(savedSessions);
+        
+        // Migration for older sessions
+        const migratedSessions = parsedSessions.map(session => {
+          if (!session.codeHistory) {
+            return {
+              ...session,
+              codeHistory: [{ jsxCode: session.jsxCode, cssCode: session.cssCode }],
+              currentVersion: 0
+            };
+          }
+          return session;
+        });
+
+        setSessions(migratedSessions);
+        if (savedActiveId && migratedSessions.some((s: Session) => s.id === savedActiveId)) {
           setActiveSessionId(savedActiveId);
-        } else if (parsedSessions.length > 0) {
-          setActiveSessionId(parsedSessions[0].id);
+        } else if (migratedSessions.length > 0) {
+          setActiveSessionId(migratedSessions[0].id);
         } else {
           handleNewSession();
         }
@@ -236,8 +249,13 @@ export function AetherUIMain() {
       
       updateActiveSession(s => {
         const newVersion = { jsxCode: jsxTsxCode, cssCode: cssCode };
+        
+        // Ensure codeHistory exists and is an array
+        const currentHistory = Array.isArray(s.codeHistory) ? s.codeHistory : [{ jsxCode: s.jsxCode, cssCode: s.cssCode }];
+        const currentV = s.currentVersion ?? 0;
+
         // Truncate history if we are not at the latest version
-        const history = s.codeHistory.slice(0, s.currentVersion + 1);
+        const history = currentHistory.slice(0, currentV + 1);
         const newHistory = [...history, newVersion].slice(-5); // Keep last 5 versions
 
         return {
@@ -245,7 +263,7 @@ export function AetherUIMain() {
           jsxCode: jsxTsxCode,
           cssCode: cssCode,
           codeHistory: newHistory,
-          currentVersion: newHistory.length -1,
+          currentVersion: newHistory.length - 1,
         }
       });
 
@@ -686,6 +704,8 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
+
+    
 
     
 
