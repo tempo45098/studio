@@ -52,12 +52,12 @@ Based on the above information, generate the refined JSX/TSX code and CSS (if ne
 
 Refined JSX/TSX Code:
 \`\`\`jsx
-{{output.refinedComponentCode}}
+{{refinedComponentCode}}
 \`\`\`
 
 Refined CSS Code (if needed):
 \`\`\`css
-{{output.refinedCss}}
+{{refinedCss}}
 \`\`\`
 `,
 });

@@ -37,14 +37,14 @@ Prompt: {{{prompt}}}
 Output the JSX/TSX code and CSS code in separate blocks.
 
 JSX/TSX Code:
-```jsx
+\`\`\`jsx
 {{jsxTsxCode}}
-```
+\`\`\`
 
 CSS Code:
-```css
+\`\`\`css
 {{cssCode}}
-````,
+\`\`\``,
 });
 
 const generateUiComponentFlow = ai.defineFlow(
