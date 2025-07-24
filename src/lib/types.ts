@@ -4,6 +4,11 @@ export interface Message {
     content: string;
     imageUrl?: string | null;
   }
+
+  export interface CodeVersion {
+    jsxCode: string;
+    cssCode: string;
+  }
   
   export interface Session {
     id:string;
@@ -13,5 +18,7 @@ export interface Message {
     jsxCode: string;
     cssCode: string;
     uploadedImage: string | null;
+    codeHistory: CodeVersion[];
+    currentVersion: number;
   }
   

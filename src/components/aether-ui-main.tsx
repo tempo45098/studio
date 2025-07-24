@@ -24,7 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AetherLogo } from '@/components/icons';
-import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle, Smartphone, Monitor } from 'lucide-react';
+import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle, Smartphone, Monitor, Undo2, Redo2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
@@ -69,15 +69,28 @@ import {
 
 const defaultInitialPrompt = "A modern, sleek login form with email and password fields, a submit button, and a 'forgot password' link. The form should be centered on the page. Use placeholders instead of labels.";
 
-const getInitialSession = (): Session => ({
-  id: uuidv4(),
-  name: `Session ${new Date().toLocaleString()}`,
-  createdAt: new Date().toISOString(),
-  chatHistory: [{ id: uuidv4(), role: 'system', content: 'New session started.' }],
-  jsxCode: '<div>Your component will appear here.</div>',
-  cssCode: '/* Your component CSS will appear here */',
-  uploadedImage: null,
-});
+const creativeSessionNames = [
+    "Cosmic Canvas", "Quantum Query", "Starlight Sketch", "Nebula Nudge", "Aether Architect",
+    "Pixel Weave", "Code Comet", "Syntax Starship", "Orion UI", "Galaxy Grids",
+    "Celestial Component", "Meteor Mockup", "Pulsar Prototype", "Void Visuals", "Infinity Interface"
+];
+
+const getInitialSession = (): Session => {
+    const initialCode = {
+        jsxCode: '<div>Your component will appear here.</div>',
+        cssCode: '/* Your component CSS will appear here */'
+    };
+    return {
+        id: uuidv4(),
+        name: creativeSessionNames[Math.floor(Math.random() * creativeSessionNames.length)],
+        createdAt: new Date().toISOString(),
+        chatHistory: [{ id: uuidv4(), role: 'system', content: 'New session started.' }],
+        ...initialCode,
+        uploadedImage: null,
+        codeHistory: [initialCode],
+        currentVersion: 0,
+    };
+};
 
 export function AetherUIMain() {
   const { toast } = useToast();
@@ -179,7 +192,15 @@ export function AetherUIMain() {
       content: prompt,
       imageUrl: activeSession.uploadedImage 
     };
+
+    let sessionNameUpdate = {};
+    const isFirstUserPrompt = activeSession.chatHistory.length === 1 && activeSession.chatHistory[0].role === 'system';
+    if (isFirstUserPrompt) {
+        sessionNameUpdate = { name: prompt.substring(0, 40) + (prompt.length > 40 ? '...' : '') };
+    }
+
     updateActiveSession(s => ({
+      ...sessionNameUpdate,
       chatHistory: [...s.chatHistory, userMessage],
       uploadedImage: null, // Move image from temp state to chat history
     }));
@@ -213,11 +234,20 @@ export function AetherUIMain() {
         content: `I've updated the component based on your request: "${prompt}". Feel free to provide more feedback.`,
       };
       
-      updateActiveSession(s => ({
-        chatHistory: [...s.chatHistory, assistantMessage],
-        jsxCode: jsxTsxCode,
-        cssCode: cssCode,
-      }));
+      updateActiveSession(s => {
+        const newVersion = { jsxCode: jsxTsxCode, cssCode: cssCode };
+        // Truncate history if we are not at the latest version
+        const history = s.codeHistory.slice(0, s.currentVersion + 1);
+        const newHistory = [...history, newVersion].slice(-5); // Keep last 5 versions
+
+        return {
+          chatHistory: [...s.chatHistory, assistantMessage],
+          jsxCode: jsxTsxCode,
+          cssCode: cssCode,
+          codeHistory: newHistory,
+          currentVersion: newHistory.length -1,
+        }
+      });
 
     } catch (error) {
       console.error("AI Error:", error);
@@ -231,6 +261,26 @@ export function AetherUIMain() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleUndo = () => {
+    if (!activeSession || activeSession.currentVersion <= 0) return;
+    const newVersionIndex = activeSession.currentVersion - 1;
+    const newVersion = activeSession.codeHistory[newVersionIndex];
+    updateActiveSession({
+        ...newVersion,
+        currentVersion: newVersionIndex,
+    });
+  };
+
+  const handleRedo = () => {
+    if (!activeSession || activeSession.currentVersion >= activeSession.codeHistory.length - 1) return;
+    const newVersionIndex = activeSession.currentVersion + 1;
+    const newVersion = activeSession.codeHistory[newVersionIndex];
+    updateActiveSession({
+        ...newVersion,
+        currentVersion: newVersionIndex,
+    });
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -388,6 +438,9 @@ export function AetherUIMain() {
         }
     }
   }
+  
+  const canUndo = activeSession.currentVersion > 0;
+  const canRedo = activeSession.currentVersion < activeSession.codeHistory.length - 1;
 
   return (
     <div className="h-screen w-full bg-background font-body text-foreground">
@@ -506,6 +559,10 @@ export function AetherUIMain() {
                   </Button>
                   <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
                   <div className="flex-grow" />
+                  <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" onClick={handleUndo} disabled={!canUndo}><Undo2 /></Button>
+                      <Button variant="ghost" size="icon" onClick={handleRedo} disabled={!canRedo}><Redo2 /></Button>
+                  </div>
                    <div className="flex items-center gap-2">
                       <Button variant={viewportMode === 'desktop' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewportMode('desktop')}>
                         <Monitor />
