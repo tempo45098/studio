@@ -18,7 +18,42 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
 import { LiveProvider, LivePreview, LiveError } from 'react-live';
 import * as LucideIcons from 'lucide-react';
-import * as ShadcnUI from './ui';
+
+import {
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, AlertDialogPortal, AlertDialogTitle, AlertDialogTrigger,
+  Alert, AlertDescription, AlertTitle,
+  Avatar as AvatarComponent, AvatarFallback as AvatarFallbackComponent, AvatarImage,
+  Badge,
+  Button as ButtonComponent,
+  Calendar,
+  Card as CardComponent, CardContent as CardContentComponent, CardDescription as CardDescriptionComponent, CardFooter, CardHeader as CardHeaderComponent, CardTitle as CardTitleComponent,
+  Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious,
+  ChartContainer, ChartLegend, ChartLegendContent, ChartStyle, ChartTooltip, ChartTooltipContent,
+  Checkbox,
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+  Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger,
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
+  Input as InputComponent,
+  Label,
+  Menubar, MenubarCheckboxItem, MenubarContent, MenubarGroup, MenubarItem, MenubarLabel, MenubarMenu, MenubarPortal, MenubarRadioGroup, MenubarRadioItem, MenubarSeparator, MenubarShortcut, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger,
+  Popover, PopoverContent, PopoverTrigger,
+  Progress,
+  RadioGroup, RadioGroupItem,
+  ScrollArea as ScrollAreaComponent, ScrollBar,
+  Select as SelectComponent, SelectContent as SelectContentComponent, SelectGroup, SelectItem as SelectItemComponent, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger as SelectTriggerComponent, SelectValue as SelectValueComponent,
+  Separator,
+  Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetOverlay, SheetPortal, SheetTitle, SheetTrigger,
+  Skeleton,
+  Slider,
+  Switch,
+  Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow,
+  Tabs as TabsComponent, TabsContent as TabsContentComponent, TabsList as TabsListComponent, TabsTrigger as TabsTriggerComponent,
+  Textarea as TextareaComponent,
+  Toast, ToastAction, ToastClose, ToastDescription, Toaster, ToastProvider, ToastTitle, ToastViewport,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from './ui';
 
 const defaultInitialPrompt = "A modern, sleek login form with email and password fields, a submit button, and a 'forgot password' link. The form should be centered on the page. Use placeholders instead of labels.";
 
@@ -27,7 +62,7 @@ const getInitialSession = (): Session => ({
   name: `Session ${new Date().toLocaleString()}`,
   createdAt: new Date().toISOString(),
   chatHistory: [{ id: uuidv4(), role: 'system', content: 'New session started.' }],
-  jsxCode: 'export default () => <p>Your component will appear here.</p>;',
+  jsxCode: '<p>Your component will appear here.</p>',
   cssCode: '/* Your component CSS will appear here */',
 });
 
@@ -209,12 +244,54 @@ export function AetherUIMain() {
     }
   }, [activeSession?.chatHistory]);
 
-  const liveProviderScope = { 
-    ...LucideIcons, 
-    ...ShadcnUI,
-    useState, 
-    useEffect, 
+  const liveProviderScope = {
+    React,
+    useState,
+    useEffect,
+    ...LucideIcons,
+    Accordion, AccordionContent, AccordionItem, AccordionTrigger,
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, AlertDialogPortal, AlertDialogTitle, AlertDialogTrigger,
+    Alert, AlertDescription, AlertTitle,
+    Avatar: AvatarComponent, AvatarFallback: AvatarFallbackComponent, AvatarImage,
+    Badge,
+    Button: ButtonComponent,
+    Calendar,
+    Card: CardComponent, CardContent: CardContentComponent, CardDescription: CardDescriptionComponent, CardFooter, CardHeader: CardHeaderComponent, CardTitle: CardTitleComponent,
+    Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious,
+    ChartContainer, ChartLegend, ChartLegendContent, ChartStyle, ChartTooltip, ChartTooltipContent,
+    Checkbox,
+    Collapsible, CollapsibleContent, CollapsibleTrigger,
+    Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger,
+    DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
+    Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
+    Input: InputComponent,
+    Label,
+    Menubar, MenubarCheckboxItem, MenubarContent, MenubarGroup, MenubarItem, MenubarLabel, MenubarMenu, MenubarPortal, MenubarRadioGroup, MenubarRadioItem, MenubarSeparator, MenubarShortcut, MenubarSub, MenubarSubContent, MenubarSubTrigger, MenubarTrigger,
+    Popover, PopoverContent, PopoverTrigger,
+    Progress,
+    RadioGroup, RadioGroupItem,
+    ScrollArea: ScrollAreaComponent, ScrollBar,
+    Select: SelectComponent, SelectContent: SelectContentComponent, SelectGroup, SelectItem: SelectItemComponent, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger: SelectTriggerComponent, SelectValue: SelectValueComponent,
+    Separator,
+    Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetOverlay, SheetPortal, SheetTitle, SheetTrigger,
+    Skeleton,
+    Slider,
+    Switch,
+    Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow,
+    Tabs: TabsComponent, TabsContent: TabsContentComponent, TabsList: TabsListComponent, TabsTrigger: TabsTriggerComponent,
+    Textarea: TextareaComponent,
+    Toast, ToastAction, ToastClose, ToastDescription, Toaster, ToastProvider, ToastTitle, ToastViewport,
+    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
   };
+
+  const preparedCode = useMemo(() => {
+    if (!activeSession?.jsxCode) return '';
+    // Strip "export default" and trailing semicolon
+    return activeSession.jsxCode
+      .replace(/^export default\s+/, '')
+      .replace(/;$/, '');
+  }, [activeSession?.jsxCode]);
+
 
   if (!isClient || !activeSession) {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader className="animate-spin" /></div>;
@@ -303,7 +380,7 @@ export function AetherUIMain() {
           <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
           <Card className="flex-1 w-full shadow-lg relative">
             <style>{activeSession.cssCode}</style>
-             <LiveProvider code={activeSession.jsxCode} scope={liveProviderScope} noInline={false}>
+             <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={false}>
               <div className="p-4 h-full w-full flex items-center justify-center">
                   <LivePreview />
               </div>
