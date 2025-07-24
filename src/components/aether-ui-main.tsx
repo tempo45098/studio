@@ -2,6 +2,14 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "react-resizable-panels"
+
 import { generateUiComponent } from '@/ai/flows/generate-ui-component';
 import { iterativelyRefineUIComponent } from '@/ai/flows/iteratively-refine-component';
 import type { Session, Message } from '@/lib/types';
@@ -12,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AetherLogo } from '@/components/icons';
-import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User } from 'lucide-react';
+import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
@@ -62,7 +70,7 @@ const getInitialSession = (): Session => ({
   name: `Session ${new Date().toLocaleString()}`,
   createdAt: new Date().toISOString(),
   chatHistory: [{ id: uuidv4(), role: 'system', content: 'New session started.' }],
-  jsxCode: '<p>Your component will appear here.</p>',
+  jsxCode: '<div>Your component will appear here.</div>',
   cssCode: '/* Your component CSS will appear here */',
 });
 
@@ -73,6 +81,8 @@ export function AetherUIMain() {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -200,41 +210,21 @@ export function AetherUIMain() {
       setIsLoading(false);
     }
   };
-
-  const handleRefineWithPrompt = async (refinementPrompt: string) => {
-    if (!refinementPrompt.trim() || isLoading || !activeSession) return;
-  
-    const userMessage: Message = { id: uuidv4(), role: 'user', content: refinementPrompt };
-    updateActiveSession(s => ({ chatHistory: [...s.chatHistory, userMessage] }));
-    setIsLoading(true);
-  
-    try {
-      const response = await iterativelyRefineUIComponent({
-          userPrompt: refinementPrompt,
-          baseComponentCode: activeSession.jsxCode,
-          existingCss: activeSession.cssCode,
-      });
-      const { refinedComponentCode, refinedCss } = response;
-      const assistantMessage: Message = { id: uuidv4(), role: 'assistant', content: `I've refined the component.` };
-      
-      updateActiveSession(s => ({
-        chatHistory: [...s.chatHistory, assistantMessage],
-        jsxCode: refinedComponentCode,
-        cssCode: refinedCss || s.cssCode,
-      }));
-    } catch (error) {
-      console.error("AI Error:", error);
-      const errorMessage: Message = { id: uuidv4(), role: 'system', content: 'An error occurred during refinement.' };
-      updateActiveSession(s => ({ chatHistory: [...s.chatHistory, errorMessage] }));
-      toast({ title: "AI Error", description: "Could not refine component.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  };
   
   const handleCopyCode = (code: string, type: string) => {
     navigator.clipboard.writeText(code);
     toast({ title: `${type} Copied!`, description: "The code has been copied to your clipboard." });
+  };
+
+  const handleDownloadZip = () => {
+    if (!activeSession) return;
+    const zip = new JSZip();
+    zip.file("component.jsx", activeSession.jsxCode);
+    zip.file("styles.css", activeSession.cssCode);
+    zip.generateAsync({ type: "blob" }).then(content => {
+      saveAs(content, "component.zip");
+      toast({ title: "Downloaded!", description: "Component files zipped and downloaded." });
+    });
   };
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -286,163 +276,178 @@ export function AetherUIMain() {
 
   const preparedCode = useMemo(() => {
     if (!activeSession?.jsxCode) return '';
-    
-    // Initial placeholder
-    if (activeSession.jsxCode.includes('Your component will appear here')) {
-      return activeSession.jsxCode;
-    }
+    if (activeSession.jsxCode.includes('Your component will appear here')) return activeSession.jsxCode;
 
-    // Regular expression to find the component name from various definitions
     const componentNameMatch = activeSession.jsxCode.match(
-      /export default function (\w+)|export default (\w+)|const (\w+) = \(\) =>/
+      /export default function (\w+)|export default (?:class|const) (\w+)|const (\w+) = \(\) =>|function (\w+)\(/
     );
+    const componentName = componentNameMatch ? (componentNameMatch[1] || componentNameMatch[2] || componentNameMatch[3] || componentNameMatch[4]) : null;
 
-    const componentName = componentNameMatch ? (componentNameMatch[1] || componentNameMatch[2] || componentNameMatch[3]) : null;
-
-    // Strip "export default" and trailing semicolon
     const cleanedCode = activeSession.jsxCode
       .replace(/export default\s+/, '')
       .replace(/;$/, '');
 
     if (componentName) {
-      // Append the component tag to be rendered
       return `${cleanedCode}\n\nrender(<${componentName} />);`;
     }
-
-    // Fallback for simple elements or if component name can't be found
     return cleanedCode;
   }, [activeSession?.jsxCode]);
-
 
   if (!isClient || !activeSession) {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader className="animate-spin" /></div>;
   }
 
   return (
-    <div className="flex h-screen w-full bg-background font-body text-foreground">
-      {/* Left Panel: Chat & Sessions */}
-      <aside className="w-[380px] flex-shrink-0 border-r border-border bg-card flex flex-col">
-        <div className="p-4 border-b border-border flex-shrink-0">
-          <div className="flex items-center gap-3 mb-4">
-            <AetherLogo className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold font-headline">Aether UI</h1>
-          </div>
-          <div className="flex gap-2">
-            <Select value={activeSessionId || ''} onValueChange={handleSelectSession}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Select a session" />
-              </SelectTrigger>
-              <SelectContent>
-                {sessions.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" size="icon" onClick={handleNewSession} aria-label="New Session"><Plus /></Button>
-            <Button variant="destructive" size="icon" onClick={() => handleDeleteSession(activeSessionId!)} aria-label="Delete Session"><Trash2 /></Button>
-          </div>
-        </div>
-        
-        <ScrollArea className="flex-1" ref={chatContainerRef}>
-          <div className="p-4 space-y-6">
-            {activeSession.chatHistory.map(msg => (
-              <div key={msg.id} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                {msg.role !== 'user' && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback>{msg.role === 'assistant' ? <Bot /> : 'S'}</AvatarFallback>
-                  </Avatar>
-                )}
-                <div className={`rounded-lg px-4 py-2 max-w-[80%] text-sm ${
-                  msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                } ${msg.role === 'system' ? 'w-full text-center bg-transparent text-muted-foreground text-xs italic' : ''}`}>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                </div>
-                {msg.role === 'user' && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback><User /></AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-             {isLoading && (
-              <div className="flex items-start gap-3">
-                <Avatar className="w-8 h-8"><AvatarFallback><Bot /></AvatarFallback></Avatar>
-                <div className="rounded-lg px-4 py-2 max-w-[80%] text-sm bg-muted flex items-center gap-2">
-                  <Loader className="animate-spin h-4 w-4" />
-                  <span>Thinking...</span>
+    <div className="h-screen w-full bg-background font-body text-foreground">
+      <PanelGroup direction="horizontal">
+        {/* Left Panel: Chat & Sessions */}
+        <Panel
+          defaultSize={25}
+          minSize={20}
+          collapsible
+          collapsedSize={0}
+          onCollapse={() => setIsLeftPanelCollapsed(true)}
+          onExpand={() => setIsLeftPanelCollapsed(false)}
+          className="flex-shrink-0 !overflow-visible" // style adjustment for select dropdown
+        >
+          <aside className="h-full flex flex-col">
+            <div className="p-4 border-b border-border flex-shrink-0">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <AetherLogo className="w-8 h-8 text-primary" />
+                  <h1 className="text-2xl font-bold font-headline">Aether UI</h1>
                 </div>
               </div>
-            )}
-          </div>
-        </ScrollArea>
-
-        <div className="p-4 border-t border-border flex-shrink-0">
-          <form onSubmit={handlePromptSubmit} className="flex gap-2">
-            <Input 
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              placeholder="Describe the component you want..."
-              disabled={isLoading}
-            />
-            <Button type="submit" disabled={isLoading || !prompt.trim()} size="icon" aria-label="Send">
-              <ChevronRight />
-            </Button>
-          </form>
-           <Button variant="link" className="p-0 h-auto mt-2 text-xs" onClick={() => !isLoading && setPrompt(defaultInitialPrompt)}>
-             Try an example: A modern login form
-           </Button>
-        </div>
-      </aside>
-
-      {/* Main Content: Preview, Code, Properties */}
-      <main className="flex-1 flex flex-col xl:flex-row overflow-hidden">
-        {/* Preview Panel */}
-        <div className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto">
-          <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
-          <Card className="flex-1 w-full shadow-lg relative">
-            <style>{activeSession.cssCode}</style>
-             <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
-              <div className="p-4 h-full w-full flex items-center justify-center">
-                  <LivePreview />
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 bg-red-900 text-white p-2 font-mono text-xs">
-                  <LiveError />
-              </div>
-            </LiveProvider>
-          </Card>
-        </div>
-        
-        {/* Right Panel */}
-        <aside className="w-full xl:w-[500px] flex-shrink-0 border-t xl:border-t-0 xl:border-l border-border bg-card flex flex-col overflow-hidden">
-          <Tabs defaultValue="jsx" className="flex-1 flex flex-col">
-            <div className="flex-shrink-0 px-4 pt-4 flex justify-between items-center">
-              <TabsList>
-                <TabsTrigger value="jsx">JSX</TabsTrigger>
-                <TabsTrigger value="css">CSS</TabsTrigger>
-                <TabsTrigger value="refine">Refine</TabsTrigger>
-              </TabsList>
               <div className="flex gap-2">
-                <Button variant="ghost" size="icon" onClick={() => handleCopyCode(activeSession.jsxCode, 'JSX')} aria-label="Copy JSX"><Clipboard /></Button>
-                <Button variant="ghost" size="icon" disabled aria-label="Download Code"><Download /></Button>
+                <Select value={activeSessionId || ''} onValueChange={handleSelectSession}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Select a session" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sessions.map(s => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="icon" onClick={handleNewSession} aria-label="New Session"><Plus /></Button>
+                <Button variant="destructive" size="icon" onClick={() => handleDeleteSession(activeSessionId!)} aria-label="Delete Session"><Trash2 /></Button>
               </div>
             </div>
             
-            <TabsContent value="jsx" className="flex-1 m-0 overflow-y-auto">
-              <ScrollArea className="h-full">
-                <pre className="text-sm p-4 font-code w-full h-full"><code className="language-jsx">{activeSession.jsxCode}</code></pre>
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="css" className="flex-1 m-0 overflow-y-auto">
-              <ScrollArea className="h-full">
-                <pre className="text-sm p-4 font-code w-full h-full"><code className="language-css">{activeSession.cssCode}</code></pre>
-              </ScrollArea>
-            </TabsContent>
-            <TabsContent value="refine" className="p-4 m-0">
-               <PropertyEditor onRefine={handleRefineWithPrompt} isLoading={isLoading} />
-            </TabsContent>
-          </Tabs>
-        </aside>
-      </main>
+            <ScrollArea className="flex-1" ref={chatContainerRef}>
+              <div className="p-4 space-y-6">
+                {activeSession.chatHistory.map(msg => (
+                  <div key={msg.id} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                    {msg.role !== 'user' && (
+                      <Avatar className="w-8 h-8"><AvatarFallback>{msg.role === 'assistant' ? <Bot /> : 'S'}</AvatarFallback></Avatar>
+                    )}
+                    <div className={`rounded-lg px-4 py-2 max-w-[80%] text-sm ${ msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted' } ${msg.role === 'system' ? 'w-full text-center bg-transparent text-muted-foreground text-xs italic' : ''}`}>
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                    {msg.role === 'user' && (
+                      <Avatar className="w-8 h-8"><AvatarFallback><User /></AvatarFallback></Avatar>
+                    )}
+                  </div>
+                ))}
+                 {isLoading && (
+                  <div className="flex items-start gap-3">
+                    <Avatar className="w-8 h-8"><AvatarFallback><Bot /></AvatarFallback></Avatar>
+                    <div className="rounded-lg px-4 py-2 max-w-[80%] text-sm bg-muted flex items-center gap-2">
+                      <Loader className="animate-spin h-4 w-4" />
+                      <span>Thinking...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="p-4 border-t border-border flex-shrink-0">
+              <form onSubmit={handlePromptSubmit} className="flex gap-2">
+                <Input value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the component you want..." disabled={isLoading} />
+                <Button type="submit" disabled={isLoading || !prompt.trim()} size="icon" aria-label="Send"><ChevronRight /></Button>
+              </form>
+               <Button variant="link" className="p-0 h-auto mt-2 text-xs" onClick={() => !isLoading && setPrompt(defaultInitialPrompt)}>
+                 Try an example: A modern login form
+               </Button>
+            </div>
+          </aside>
+        </Panel>
+        
+        <PanelResizeHandle className="w-2 bg-border hover:bg-primary transition-colors" />
+
+        {/* Main Content: Preview, Code, Properties */}
+        <Panel defaultSize={75}>
+          <PanelGroup direction="vertical">
+            {/* Preview Panel */}
+            <Panel defaultSize={60} minSize={20}>
+              <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto h-full">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => document.querySelector<HTMLButtonElement>('[data-panel-id="resizable-panel-group-1-panel-0"]')?.click()}>
+                    {isLeftPanelCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+                  </Button>
+                  <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
+                  <div className="flex-grow" />
+                  <Button variant="ghost" size="icon" onClick={() => document.querySelector<HTMLButtonElement>('[data-panel-id="resizable-panel-group-1-panel-2"]')?.click()}>
+                    {isRightPanelCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
+                  </Button>
+                </div>
+                <Card className="flex-1 w-full shadow-lg relative">
+                  <style>{activeSession.cssCode}</style>
+                   <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
+                    <div className="p-4 h-full w-full flex items-center justify-center">
+                        <LivePreview />
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-red-900 text-white p-2 font-mono text-xs">
+                        <LiveError />
+                    </div>
+                  </LiveProvider>
+                </Card>
+              </main>
+            </Panel>
+
+            <PanelResizeHandle className="h-2 bg-border hover:bg-primary transition-colors" />
+
+            {/* Bottom Panel */}
+            <Panel defaultSize={40} minSize={20} collapsible collapsedSize={0} onCollapse={() => setIsRightPanelCollapsed(true)} onExpand={() => setIsRightPanelCollapsed(false)}>
+              <aside className="h-full flex-shrink-0 bg-card flex flex-col overflow-hidden">
+                <Tabs defaultValue="jsx" className="flex-1 flex flex-col">
+                  <div className="flex-shrink-0 px-4 pt-4 flex justify-between items-center">
+                    <TabsList>
+                      <TabsTrigger value="jsx">JSX</TabsTrigger>
+                      <TabsTrigger value="css">CSS</TabsTrigger>
+                      <TabsTrigger value="refine">Refine</TabsTrigger>
+                    </TabsList>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleCopyCode(activeSession.jsxCode, 'JSX')} aria-label="Copy JSX"><Clipboard /></Button>
+                      <Button variant="ghost" size="icon" onClick={handleDownloadZip} aria-label="Download Code"><Download /></Button>
+                    </div>
+                  </div>
+                  
+                  <TabsContent value="jsx" className="flex-1 m-0 overflow-y-auto">
+                    <Textarea
+                      value={activeSession.jsxCode}
+                      onChange={(e) => updateActiveSession({ jsxCode: e.target.value })}
+                      className="w-full h-full p-4 font-code text-sm rounded-none border-none focus:ring-0"
+                      placeholder="JSX Code"
+                    />
+                  </TabsContent>
+                  <TabsContent value="css" className="flex-1 m-0 overflow-y-auto">
+                    <Textarea
+                      value={activeSession.cssCode}
+                      onChange={(e) => updateActiveSession({ cssCode: e.target.value })}
+                      className="w-full h-full p-4 font-code text-sm rounded-none border-none focus:ring-0"
+                      placeholder="CSS Code"
+                    />
+                  </TabsContent>
+                  <TabsContent value="refine" className="p-4 m-0">
+                     <PropertyEditor onRefine={(p) => handlePromptSubmit({ preventDefault: () => {}, currentTarget: { value: p } } as any)} isLoading={isLoading} />
+                  </TabsContent>
+                </Tabs>
+              </aside>
+            </Panel>
+          </PanelGroup>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
