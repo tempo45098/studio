@@ -11,13 +11,13 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const AskAiAboutCodeInputSchema = z.object({
+const AskAiAboutCodeInputSchema = z.object({
   codeSnippet: z.string().describe('The snippet of code to be discussed.'),
   userPrompt: z.string().describe('The user\'s question or instruction about the code snippet.'),
 });
 export type AskAiAboutCodeInput = z.infer<typeof AskAiAboutCodeInputSchema>;
 
-export const AskAiAboutCodeOutputSchema = z.object({
+const AskAiAboutCodeOutputSchema = z.object({
     responseType: z.enum(['explanation', 'code_update']).describe("The type of response generated. 'explanation' if the AI is explaining code, 'code_update' if it is providing new code."),
     explanation: z.string().optional().describe('The textual explanation of the code, if requested.'),
     updatedCode: z.string().optional().describe('The new or modified code snippet, if the user asked for a change.'),
