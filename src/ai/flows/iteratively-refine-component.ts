@@ -57,16 +57,6 @@ Here is the user's prompt for refinement:
 {{{userPrompt}}}
 
 Based on the above information, generate the refined JSX/TSX code and CSS for the UI component. Ensure that the refined code is syntactically correct and follows best practices. Return the complete, updated component code and CSS.
-
-Refined JSX/TSX Code:
-\`\`\`tsx
-{{refinedComponentCode}}
-\`\`\`
-
-Refined CSS Code:
-\`\`\`css
-{{refinedCss}}
-\`\`\`
 `,
 });
 

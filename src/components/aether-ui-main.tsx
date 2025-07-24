@@ -286,10 +286,31 @@ export function AetherUIMain() {
 
   const preparedCode = useMemo(() => {
     if (!activeSession?.jsxCode) return '';
+    
+    // Initial placeholder
+    if (activeSession.jsxCode.includes('Your component will appear here')) {
+      return activeSession.jsxCode;
+    }
+
+    // Regular expression to find the component name from various definitions
+    const componentNameMatch = activeSession.jsxCode.match(
+      /export default function (\w+)|export default (\w+)|const (\w+) = \(\) =>/
+    );
+
+    const componentName = componentNameMatch ? (componentNameMatch[1] || componentNameMatch[2] || componentNameMatch[3]) : null;
+
     // Strip "export default" and trailing semicolon
-    return activeSession.jsxCode
-      .replace(/^export default\s+/, '')
+    const cleanedCode = activeSession.jsxCode
+      .replace(/export default\s+/, '')
       .replace(/;$/, '');
+
+    if (componentName) {
+      // Append the component tag to be rendered
+      return `${cleanedCode}\n\nrender(<${componentName} />);`;
+    }
+
+    // Fallback for simple elements or if component name can't be found
+    return cleanedCode;
   }, [activeSession?.jsxCode]);
 
 
@@ -380,7 +401,7 @@ export function AetherUIMain() {
           <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
           <Card className="flex-1 w-full shadow-lg relative">
             <style>{activeSession.cssCode}</style>
-             <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={false}>
+             <LiveProvider code={preparedCode} scope={liveProviderScope} noInline={true}>
               <div className="p-4 h-full w-full flex items-center justify-center">
                   <LivePreview />
               </div>
@@ -462,5 +483,3 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
-
-    

@@ -40,18 +40,7 @@ Do NOT include any other named exports.
 Do NOT include \`import React from 'react'\` or any other imports, as they are provided automatically.
 
 Prompt: {{{prompt}}}
-
-Begin your response with the JSX/TSX code, followed by the CSS code.
-
-JSX/TSX Code:
-\`\`\`tsx
-{{{jsxTsxCode}}}
-\`\`\`
-
-CSS Code:
-\`\`\`css
-{{{cssCode}}}
-\`\`\``,
+`,
 });
 
 const generateUiComponentFlow = ai.defineFlow(
