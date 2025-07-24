@@ -10,6 +10,7 @@ import {
   Panel,
   PanelGroup,
   PanelResizeHandle,
+  ImperativePanelGroupHandle,
 } from "react-resizable-panels"
 import Editor from '@monaco-editor/react';
 
@@ -90,6 +91,8 @@ export function AetherUIMain() {
   const [viewportMode, setViewportMode] = useState<'desktop' | 'mobile'>('desktop');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -240,7 +243,9 @@ export function AetherUIMain() {
       reader.readAsDataURL(file);
     }
     // Reset file input to allow uploading the same file again
-    event.target.value = '';
+    if (event.target) {
+      event.target.value = '';
+    }
   };
   
   const handleCopyCode = (code: string, type: string) => {
@@ -321,17 +326,12 @@ export function AetherUIMain() {
   
     // Find the component name
     const componentNameMatch = cleanedCode.match(
-      /(?:function|class)\s+([A-Z]\w*)|(?:const|let|var)\s+([A-Z]\w*)\s*=\s*(?:React\.forwardRef)?\s*\(/
+      /(?:function|class|const)\s+([A-Z]\w*)/
     );
   
     let componentName = null;
     if (componentNameMatch) {
-      componentName = componentNameMatch[1] || componentNameMatch[2];
-    } else {
-       const arrowMatch = cleanedCode.match(/const\s+([A-Z]\w*)\s*=\s*\([^)]*\)\s*=>/);
-       if (arrowMatch) {
-         componentName = arrowMatch[1];
-       }
+      componentName = componentNameMatch[1];
     }
   
     if (componentName) {
@@ -339,13 +339,22 @@ export function AetherUIMain() {
     }
     
     // Fallback if no component name is found: Check for a function that returns JSX
-    const functionMatch = cleanedCode.match(/function\s*([A-Z]\w*)\s*\([^)]*\)\s*\{/);
-    if(functionMatch) {
-      componentName = functionMatch[1];
+    const arrowMatch = cleanedCode.match(/const\s+([A-Z]\w*)\s*=\s*\([^)]*\)\s*=>/);
+    if(arrowMatch) {
+      componentName = arrowMatch[1];
       return `${cleanedCode}\n\nrender(<${componentName} />);`;
     }
-  
+    
     // If all else fails, wrap in a render call that might not work but is the best guess
+    try {
+        // A bit of a hack: try to find a capitalized tag which indicates a component
+        const potentialComponent = cleanedCode.match(/<([A-Z]\w*)/);
+        if(potentialComponent) {
+            // This is not a reliable way to get the component to render, but it's a last resort
+        }
+    } catch(e) { /* ignore */ }
+    
+    // Final fallback
     return `render(<div>${cleanedCode}</div>)`;
   
   }, [activeSession?.jsxCode]);
@@ -354,18 +363,45 @@ export function AetherUIMain() {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loader className="animate-spin" /></div>;
   }
 
+  const toggleLeftPanel = () => {
+    if (panelGroupRef.current) {
+        const panel = panelGroupRef.current.getPanel(0);
+        if (panel) {
+            if (panel.isCollapsed()) {
+                panel.expand();
+            } else {
+                panel.collapse();
+            }
+        }
+    }
+  }
+
+  const toggleRightPanel = () => {
+    if (panelGroupRef.current) {
+        const panel = panelGroupRef.current.getPanel(2);
+        if (panel) {
+            if (panel.isCollapsed()) {
+                panel.expand();
+            } else {
+                panel.collapse();
+            }
+        }
+    }
+  }
+
   return (
     <div className="h-screen w-full bg-background font-body text-foreground">
-      <PanelGroup direction="horizontal">
+      <PanelGroup direction="horizontal" ref={panelGroupRef}>
         {/* Left Panel: Chat & Sessions */}
         <Panel
+          id="left-panel"
           defaultSize={25}
           minSize={20}
           collapsible
           collapsedSize={0}
           onCollapse={() => setIsLeftPanelCollapsed(true)}
           onExpand={() => setIsLeftPanelCollapsed(false)}
-          className="flex-shrink-0 !overflow-visible" // style adjustment for select dropdown
+          className="flex-shrink-0 !overflow-visible" 
         >
           <aside className="h-full flex flex-col">
             <div className="p-4 border-b border-border flex-shrink-0">
@@ -459,13 +495,13 @@ export function AetherUIMain() {
         <PanelResizeHandle className="w-2 bg-border hover:bg-primary transition-colors" />
 
         {/* Main Content: Preview, Code, Properties */}
-        <Panel defaultSize={75}>
+        <Panel id="main-panel" defaultSize={75}>
           <PanelGroup direction="vertical">
             {/* Preview Panel */}
             <Panel defaultSize={60} minSize={20}>
               <main className="flex-1 flex flex-col p-4 gap-4 overflow-y-auto h-full">
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => document.querySelector<HTMLButtonElement>('[data-panel-id="resizable-panel-group-1-panel-0"]')?.click()}>
+                  <Button variant="ghost" size="icon" onClick={toggleLeftPanel}>
                     {isLeftPanelCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
                   </Button>
                   <h2 className="text-lg font-semibold tracking-tight">Live Preview</h2>
@@ -479,7 +515,7 @@ export function AetherUIMain() {
                       </Button>
                     </div>
                   <div className="flex-grow" />
-                  <Button variant="ghost" size="icon" onClick={() => document.querySelector<HTMLButtonElement>('[data-panel-id="resizable-panel-group-1-panel-2"]')?.click()}>
+                  <Button variant="ghost" size="icon" onClick={toggleRightPanel}>
                     {isRightPanelCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
                   </Button>
                 </div>
@@ -506,7 +542,7 @@ export function AetherUIMain() {
             <PanelResizeHandle className="h-2 bg-border hover:bg-primary transition-colors" />
 
             {/* Bottom Panel */}
-            <Panel defaultSize={40} minSize={20} collapsible collapsedSize={0} onCollapse={() => setIsRightPanelCollapsed(true)} onExpand={() => setIsRightPanelCollapsed(false)}>
+            <Panel id="bottom-panel" defaultSize={40} minSize={20} collapsible collapsedSize={0} onCollapse={() => setIsRightPanelCollapsed(true)} onExpand={() => setIsRightPanelCollapsed(false)}>
               <aside className="h-full flex-shrink-0 bg-card flex flex-col overflow-hidden">
                 <Tabs defaultValue="jsx" className="flex-1 flex flex-col">
                   <div className="flex-shrink-0 px-4 pt-4 flex justify-between items-center">
