@@ -16,6 +16,7 @@ const IterativelyRefineUIComponentInputSchema = z.object({
     .describe('The base JSX/TSX code of the UI component to be refined.'),
   userPrompt: z.string().describe('The user prompt providing feedback or instructions for refinement.'),
   existingCss: z.string().optional().describe('The existing CSS code for the UI component.'),
+  imageDataUri: z.string().optional().describe("An optional image providing visual context for the UI component, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type IterativelyRefineUIComponentInput = z.infer<typeof IterativelyRefineUIComponentInputSchema>;
 
@@ -55,6 +56,11 @@ Here is the existing CSS code of the UI component (if any):
 
 Here is the user's prompt for refinement:
 {{{userPrompt}}}
+
+{{#if imageDataUri}}
+The user has provided an image as a visual reference for this refinement. Take it into account.
+Image: {{media url=imageDataUri}}
+{{/if}}
 
 Based on the above information, generate the refined JSX/TSX code and CSS for the UI component. Ensure that the refined code is syntactically correct and follows best practices. Return the complete, updated component code and CSS.
 `,

@@ -13,6 +13,7 @@ import {z} from 'genkit';
 
 const GenerateUiComponentInputSchema = z.object({
   prompt: z.string().describe('A text prompt describing the desired UI component.'),
+  imageDataUri: z.string().optional().describe("An optional image providing visual context for the UI component, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
 });
 export type GenerateUiComponentInput = z.infer<typeof GenerateUiComponentInputSchema>;
 
@@ -40,6 +41,11 @@ Do NOT include any other named exports.
 Do NOT include \`import React from 'react'\` or any other imports, as they are provided automatically.
 
 Prompt: {{{prompt}}}
+
+{{#if imageDataUri}}
+The user has provided an image as a visual reference. Base your component design on this image.
+Image: {{media url=imageDataUri}}
+{{/if}}
 `,
 });
 

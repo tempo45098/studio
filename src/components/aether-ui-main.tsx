@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import Image from 'next/image';
 import {
   Panel,
   PanelGroup,
@@ -21,7 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AetherLogo } from '@/components/icons';
-import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen } from 'lucide-react';
+import { Bot, ChevronRight, Clipboard, Download, Loader, Plus, Trash2, User, PanelLeftClose, PanelRightClose, PanelLeftOpen, PanelRightOpen, Paperclip, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
@@ -73,6 +74,7 @@ const getInitialSession = (): Session => ({
   chatHistory: [{ id: uuidv4(), role: 'system', content: 'New session started.' }],
   jsxCode: '<div>Your component will appear here.</div>',
   cssCode: '/* Your component CSS will appear here */',
+  uploadedImage: null,
 });
 
 export function AetherUIMain() {
@@ -84,6 +86,8 @@ export function AetherUIMain() {
   const [isClient, setIsClient] = useState(false);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -174,13 +178,19 @@ export function AetherUIMain() {
     try {
       const isFirstPrompt = activeSession.jsxCode.includes('Your component will appear here');
       let response;
+      const input = {
+        prompt,
+        imageDataUri: activeSession.uploadedImage || undefined,
+      };
+
       if (isFirstPrompt) {
-        response = await generateUiComponent({ prompt });
+        response = await generateUiComponent(input);
       } else {
         response = await iterativelyRefineUIComponent({
           userPrompt: prompt,
           baseComponentCode: activeSession.jsxCode,
           existingCss: activeSession.cssCode,
+          imageDataUri: activeSession.uploadedImage || undefined,
         });
       }
   
@@ -196,6 +206,7 @@ export function AetherUIMain() {
         chatHistory: [...s.chatHistory, assistantMessage],
         jsxCode: jsxTsxCode,
         cssCode: cssCode,
+        uploadedImage: null, // Clear image after use
       }));
   
     } catch (error) {
@@ -209,6 +220,17 @@ export function AetherUIMain() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        updateActiveSession({ uploadedImage: reader.result as string });
+      };
+      reader.readAsDataURL(file);
     }
   };
   
@@ -277,31 +299,45 @@ export function AetherUIMain() {
 
   const preparedCode = useMemo(() => {
     if (!activeSession?.jsxCode) return 'render(null)';
-
     const code = activeSession.jsxCode;
     if (code.includes('Your component will appear here')) return 'render(<div>Your component will appear here.</div>)';
-
-    const cleanedCode = code.replace(/export default\s+/, '').replace(/;$/, '');
-    
-    // Regular expression to find function or class component names
+  
+    // Remove export default and trailing semicolon
+    let cleanedCode = code.replace(/export default\s+/, '').replace(/;$/, '');
+  
+    // Find the component name
     const componentNameMatch = cleanedCode.match(
+      // For function declarations, function expressions, class declarations, and arrow functions assigned to a const/let/var
       /(?:function|class)\s+([A-Z]\w*)|(?:const|let|var)\s+([A-Z]\w*)\s*=\s*(?:React\.forwardRef)?\s*\(/
     );
-
+  
     let componentName = null;
     if (componentNameMatch) {
-      // Find the first captured group that is not undefined
-      componentName = componentNameMatch.slice(1).find(name => name !== undefined);
+      componentName = componentNameMatch[1] || componentNameMatch[2];
+    } else {
+       // Fallback for simple arrow function components: const MyComponent = () => ...
+       const arrowMatch = cleanedCode.match(/const\s+([A-Z]\w*)\s*=\s*\([^)]*\)\s*=>/);
+       if (arrowMatch) {
+         componentName = arrowMatch[1];
+       }
     }
-
+  
+    // If a component name is found, append the render call
     if (componentName) {
-      return `${cleanedCode}\n\nrender(<${componentName} />);`;
+      // Check if render is already present
+      if (!/\brender\s*\(/.test(cleanedCode)) {
+        cleanedCode += `\n\nrender(<${componentName} />);`;
+      }
+      return cleanedCode;
     }
-    
-    // Fallback for functional components that might not match the regex, though it's less reliable.
-    // This is a last resort and might not always work.
-    return `${cleanedCode}\n\nrender(null);`; // Render null if component can't be identified.
-
+  
+    // Fallback if no component name could be reliably found
+    return `
+      ${cleanedCode}
+      // Could not reliably detect the component name to render.
+      // Please ensure your component is a default export and is named with PascalCase.
+      render(null);
+    `;
   }, [activeSession?.jsxCode]);
 
   if (!isClient || !activeSession) {
@@ -373,8 +409,31 @@ export function AetherUIMain() {
             </ScrollArea>
 
             <div className="p-4 border-t border-border flex-shrink-0">
+               {activeSession.uploadedImage && (
+                  <div className="relative mb-2">
+                    <Image src={activeSession.uploadedImage} alt="Uploaded preview" width={100} height={100} className="rounded-md object-cover w-full h-auto max-h-48" />
+                    <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => updateActiveSession({ uploadedImage: null })}>
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               <form onSubmit={handlePromptSubmit} className="flex gap-2">
-                <Input value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Describe the component you want..." disabled={isLoading} />
+                <Input
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  placeholder="Describe the component you want..."
+                  disabled={isLoading}
+                />
+                <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isLoading} aria-label="Upload Image">
+                  <Paperclip />
+                </Button>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    accept="image/*"
+                />
                 <Button type="submit" disabled={isLoading || !prompt.trim()} size="icon" aria-label="Send"><ChevronRight /></Button>
               </form>
                <Button variant="link" className="p-0 h-auto mt-2 text-xs" onClick={() => !isLoading && setPrompt(defaultInitialPrompt)}>
@@ -499,5 +558,3 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
-
-    

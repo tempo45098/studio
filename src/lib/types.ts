@@ -11,5 +11,6 @@ export interface Message {
     chatHistory: Message[];
     jsxCode: string;
     cssCode: string;
+    uploadedImage: string | null;
   }
   
