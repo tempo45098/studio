@@ -18,25 +18,26 @@ import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
 
 const createPreviewHtml = (jsx: string, css: string) => {
-  // A more robust way to extract the component body
-  const bodyMatch = jsx.match(/export default function \w+\(\) {([\s\S]*)}/);
-  
-  // If the match fails, it might be an arrow function or different export style.
-  // Fallback for arrow functions: export default () => { ... }
-  const bodyMatchArrow = jsx.match(/export default \(\) => {([\s\S]*)}/);
+  // Enhanced logic to find the component name, whether it's a function or a const
+  let componentName = '';
+  const functionMatch = jsx.match(/export default function (\w+)/);
+  const constMatch = jsx.match(/export default (\w+);/);
+  const inlineConstMatch = jsx.match(/const (\w+) = \(\) =>/);
 
-  let componentBody = '';
-  if (bodyMatch && bodyMatch[1]) {
-    componentBody = bodyMatch[1];
-  } else if (bodyMatchArrow && bodyMatchArrow[1]) {
-    componentBody = bodyMatchArrow[1];
+  if (functionMatch && functionMatch[1]) {
+    componentName = functionMatch[1];
+  } else if (constMatch && constMatch[1]) {
+    componentName = constMatch[1];
+  } else if (inlineConstMatch && inlineConstMatch[1]) {
+     componentName = inlineConstMatch[1];
   } else {
-    // A fallback that removes the export and function definition, less reliable
-    componentBody = jsx.replace(/export default function \w+\(\) {/, '').replace(/}$/, '');
+    // Fallback for direct export: export default () => { ... }
+    componentName = 'MyComponent';
+    jsx = jsx.replace('export default', `const ${componentName} =`);
   }
 
   // Remove imports as they are not needed in the preview sandbox
-  const cleanJsx = componentBody.replace(/import .*/g, '');
+  const cleanJsx = jsx.replace(/import .*/g, '').replace(/export default .*/, '');
 
   return `
     <!DOCTYPE html>
@@ -52,6 +53,7 @@ const createPreviewHtml = (jsx: string, css: string) => {
             margin: 0; 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
             background-color: transparent;
+            color: #E0E0E0; /* Added for better visibility of error messages in dark mode */
           }
           #root {
             display: flex;
@@ -68,11 +70,13 @@ const createPreviewHtml = (jsx: string, css: string) => {
         <div id="root"></div>
         <script type="text/babel">
           try {
-            // Define a stateless functional component
-            const Component = () => {
-              ${cleanJsx}
-            };
-            ReactDOM.render(<Component />, document.getElementById('root'));
+            ${cleanJsx}
+            // Ensure the component name is available for rendering
+            if (typeof ${componentName} !== 'undefined') {
+              ReactDOM.render(React.createElement(${componentName}), document.getElementById('root'));
+            } else {
+              throw new Error('Component could not be rendered. Check the export statement.');
+            }
           } catch (e) {
             // If there's an error, display it in the preview
             const root = document.getElementById('root');
@@ -444,3 +448,5 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
+
+    
