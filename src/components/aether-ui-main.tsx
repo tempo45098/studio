@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -275,22 +276,32 @@ export function AetherUIMain() {
   };
 
   const preparedCode = useMemo(() => {
-    if (!activeSession?.jsxCode) return '';
-    if (activeSession.jsxCode.includes('Your component will appear here')) return activeSession.jsxCode;
+    if (!activeSession?.jsxCode) return 'render(null)';
 
-    const componentNameMatch = activeSession.jsxCode.match(
-      /export default function (\w+)|export default (?:class|const) (\w+)|const (\w+) = \(\) =>|function (\w+)\(/
+    const code = activeSession.jsxCode;
+    if (code.includes('Your component will appear here')) return 'render(<div>Your component will appear here.</div>)';
+
+    const cleanedCode = code.replace(/export default\s+/, '').replace(/;$/, '');
+    
+    // Regular expression to find function or class component names
+    const componentNameMatch = cleanedCode.match(
+      /(?:function|class)\s+([A-Z]\w*)|(?:const|let|var)\s+([A-Z]\w*)\s*=\s*(?:React\.forwardRef)?\s*\(/
     );
-    const componentName = componentNameMatch ? (componentNameMatch[1] || componentNameMatch[2] || componentNameMatch[3] || componentNameMatch[4]) : null;
 
-    const cleanedCode = activeSession.jsxCode
-      .replace(/export default\s+/, '')
-      .replace(/;$/, '');
+    let componentName = null;
+    if (componentNameMatch) {
+      // Find the first captured group that is not undefined
+      componentName = componentNameMatch.slice(1).find(name => name !== undefined);
+    }
 
     if (componentName) {
       return `${cleanedCode}\n\nrender(<${componentName} />);`;
     }
-    return cleanedCode;
+    
+    // Fallback for functional components that might not match the regex, though it's less reliable.
+    // This is a last resort and might not always work.
+    return `${cleanedCode}\n\nrender(null);`; // Render null if component can't be identified.
+
   }, [activeSession?.jsxCode]);
 
   if (!isClient || !activeSession) {
@@ -488,3 +499,5 @@ function PropertyEditor({ onRefine, isLoading }: { onRefine: (prompt: string) =>
     </Card>
   );
 }
+
+    
