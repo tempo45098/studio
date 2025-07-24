@@ -35,7 +35,8 @@ const prompt = ai.definePrompt({
   output: {schema: IterativelyRefineUIComponentOutputSchema},
   prompt: `You are an AI code assistant specializing in refining UI components. The user will provide you with the existing code of a UI component, along with a prompt describing the desired changes or refinements. Your task is to modify the code according to the user's instructions and return the refined code.
 
-The user is using React with TypeScript, and has access to TailwindCSS and the lucide-react icon library.
+You MUST generate CSS for styling. Do NOT use TailwindCSS. All styling should be in the CSS block.
+The user is using React with TypeScript and the lucide-react icon library.
 
 Your generated component should be a single default exported function or const.
 Do NOT include any other named exports.
@@ -55,14 +56,14 @@ Here is the existing CSS code of the UI component (if any):
 Here is the user's prompt for refinement:
 {{{userPrompt}}}
 
-Based on the above information, generate the refined JSX/TSX code and CSS (if needed) for the UI component. Ensure that the refined code is syntactically correct and follows best practices. Return the complete, updated component code. If CSS code was provided, and the user request requires changes to the CSS, update the CSS as well. Preserve the original CSS if it's not necessary to change it. If no CSS code was provided, but the user request needs CSS code, add the CSS code.
+Based on the above information, generate the refined JSX/TSX code and CSS for the UI component. Ensure that the refined code is syntactically correct and follows best practices. Return the complete, updated component code and CSS.
 
 Refined JSX/TSX Code:
 \`\`\`tsx
 {{refinedComponentCode}}
 \`\`\`
 
-Refined CSS Code (if needed):
+Refined CSS Code:
 \`\`\`css
 {{refinedCss}}
 \`\`\`

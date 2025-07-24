@@ -30,9 +30,10 @@ const prompt = ai.definePrompt({
   name: 'generateUiComponentPrompt',
   input: {schema: GenerateUiComponentInputSchema},
   output: {schema: GenerateUiComponentOutputSchema},
-  prompt: `You are a UI component code generation expert. Generate JSX/TSX and CSS code based on the user's prompt. Ensure the code is well-formatted and uses modern styling practices.
-
-The user is using React with TypeScript, and has access to TailwindCSS and the lucide-react icon library.
+  prompt: `You are a UI component code generation expert. Generate JSX/TSX and standard CSS code based on the user's prompt.
+Ensure the code is well-formatted and uses modern styling practices.
+You MUST generate CSS for styling. Do NOT use TailwindCSS. All styling should be in the CSS block.
+The user is using React with TypeScript and the lucide-react icon library.
 
 Your generated component should be a single default exported function or const.
 Do NOT include any other named exports.
