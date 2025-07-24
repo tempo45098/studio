@@ -17,36 +17,72 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { Textarea } from './ui/textarea';
 
-const createPreviewHtml = (jsx: string, css: string) => `
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="UTF-8" />
-      <title>Component Preview</title>
-      <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-      <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-      <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-      <style>
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-        ${css}
-      </style>
-    </head>
-    <body>
-      <div id="root"></div>
-      <script type="text/babel">
-        try {
-          const Component = () => {
-            ${jsx.replace(/export default function \w+\(\) {/, 'return (').replace(/}$/, ');')}
-          };
-          ReactDOM.render(<Component />, document.getElementById('root'));
-        } catch (e) {
-          const root = document.getElementById('root');
-          root.innerHTML = '<pre style="color: red; padding: 1rem;">' + e.message + '</pre>';
-        }
-      </script>
-    </body>
-  </html>
-`;
+const createPreviewHtml = (jsx: string, css: string) => {
+  // A more robust way to extract the component body
+  const bodyMatch = jsx.match(/export default function \w+\(\) {([\s\S]*)}/);
+  
+  // If the match fails, it might be an arrow function or different export style.
+  // Fallback for arrow functions: export default () => { ... }
+  const bodyMatchArrow = jsx.match(/export default \(\) => {([\s\S]*)}/);
+
+  let componentBody = '';
+  if (bodyMatch && bodyMatch[1]) {
+    componentBody = bodyMatch[1];
+  } else if (bodyMatchArrow && bodyMatchArrow[1]) {
+    componentBody = bodyMatchArrow[1];
+  } else {
+    // A fallback that removes the export and function definition, less reliable
+    componentBody = jsx.replace(/export default function \w+\(\) {/, '').replace(/}$/, '');
+  }
+
+  // Remove imports as they are not needed in the preview sandbox
+  const cleanJsx = componentBody.replace(/import .*/g, '');
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Component Preview</title>
+        <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+        <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+        <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+        <style>
+          body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
+            background-color: transparent;
+          }
+          #root {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+          }
+          ${css}
+        </style>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script type="text/babel">
+          try {
+            // Define a stateless functional component
+            const Component = () => {
+              ${cleanJsx}
+            };
+            ReactDOM.render(<Component />, document.getElementById('root'));
+          } catch (e) {
+            // If there's an error, display it in the preview
+            const root = document.getElementById('root');
+            root.innerHTML = '<pre style="color: red; padding: 1rem;">' + e.message.replace(/</g, "&lt;") + '</pre>';
+          }
+        </script>
+      </body>
+    </html>
+  `;
+};
 
 const defaultInitialPrompt = "A modern, sleek login form with email and password fields, a submit button, and a 'forgot password' link. The form should be centered on the page. Use placeholders instead of labels.";
 
